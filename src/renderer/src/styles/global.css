@@ -1,0 +1,40 @@
+:root {
+  color-scheme: light;
+  --cor-roxo: #bf91c2;
+  --cor-roxo-escuro: #7a4c8c;
+  --cor-verde: #00a650;
+  --cor-fundo: #faf7fb;
+  --cor-cartao: #ffffff;
+  --cor-texto: #2a2230;
+  --cor-texto-suave: #6b6070;
+  --cor-borda: #e5dce8;
+  --cor-perigo: #c0392b;
+  --cor-aviso: #b8860b;
+  --cor-sucesso: #1e8449;
+  --raio: 10px;
+  --sombra: 0 1px 3px rgba(42, 34, 48, 0.08), 0 1px 2px rgba(42, 34, 48, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family:
+    "Segoe UI",
+    Arial,
+    sans-serif;
+  background: #faf7fb;
+  color: #2a2230;
+}
+
+button {
+  font-family: inherit;
+}

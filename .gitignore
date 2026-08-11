@@ -1,0 +1,10 @@
+node_modules/
+out/
+dist/
+.validacao/
+*.log
+.DS_Store
+~$*.docx
+scratch/
+.claude/
+*.tsbuildinfo
