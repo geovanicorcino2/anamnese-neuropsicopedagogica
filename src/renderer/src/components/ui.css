@@ -53,6 +53,33 @@
   overflow-y: auto;
 }
 
+/* AvisoBackup */
+.aviso-backup__fundo {
+  position: fixed;
+  inset: 0;
+  background: rgba(42, 34, 48, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.aviso-backup__caixa {
+  background: #fff;
+  border-radius: 12px;
+  padding: 28px 32px;
+  max-width: 440px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+.aviso-backup__titulo {
+  margin: 0 0 12px;
+  color: var(--cor-aviso);
+}
+.aviso-backup__acoes {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
 /* ScreenContainer */
 .tela {
   min-height: 100%;

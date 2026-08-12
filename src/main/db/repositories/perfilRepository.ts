@@ -50,6 +50,7 @@ export interface PatchPerfil {
   IA_Chave?: string | null;
   IA_Modelo?: string | null;
   IA_Url_Personalizada?: string | null;
+  Pasta_Backup?: string | null;
 }
 
 export function updatePerfil(patch: PatchPerfil): void {

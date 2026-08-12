@@ -8,6 +8,7 @@ export interface Ficha {
   Status: StatusFicha;
   Criado_Em: string;
   Atualizado_Em: string;
+  Data_Inicio_Acompanhamento: string | null;
 }
 
 export interface RespostaFicha {
@@ -40,10 +41,50 @@ export interface Perfil {
   IA_Chave: string | null;
   IA_Modelo: string | null;
   IA_Url_Personalizada: string | null;
+  Pasta_Backup: string | null;
 }
 
 export interface SugestaoIA {
   ID_Ficha: string;
   Texto: string;
   Gerado_Em: string;
+  Tempo_Sessao: string | null;
+  Atividades: string | null;
+  Observacoes: string | null;
+  Objetivo_Gerado: string | null;
+  Materiais_Gerado: string | null;
+}
+
+export interface RelatorioFinal {
+  ID_Ficha: string;
+  Objetivo_Alcancado: string | null;
+  Avaliacao_Atencao: string | null;
+  Avaliacao_Motivacao: string | null;
+  Avaliacao_Interacao: string | null;
+  Observacoes_Finais: string | null;
+  Relatorio_Gerado: string | null;
+  Gerado_Em: string | null;
+}
+
+export interface Agendamento {
+  ID_Agendamento: string;
+  ID_Ficha: string | null;
+  Nome_Paciente_Livre: string | null;
+  Data: string;
+  Hora_Inicio: string;
+  Hora_Fim: string;
+  Observacoes: string | null;
+  Criado_Em: string;
+  Atualizado_Em: string;
+}
+
+export interface DocumentoMedico {
+  ID_Documento: string;
+  ID_Ficha: string;
+  Tipo: string;
+  Nome_Personalizado: string | null;
+  Nome_Arquivo: string;
+  Mime: string;
+  Base64: string;
+  Criado_Em: string;
 }

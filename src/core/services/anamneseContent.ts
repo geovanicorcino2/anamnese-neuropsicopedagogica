@@ -54,6 +54,19 @@ function formatarValor(tipo: string, valorBruto: string | undefined): string {
   return valorBruto;
 }
 
+// Resume as seções preenchidas da anamnese em texto simples (bullets por campo, "—" omitido),
+// pra uso em prompts de IA — compartilhado entre Sugestão de Intervenção e Relatório Final.
+export function resumirSecoesAnamnese(secoes: SecaoConteudo[]): string {
+  return secoes
+    .map((secao) => {
+      const itens = secao.itens.filter((item) => item.valor !== VAZIO).map((item) => `- ${item.rotulo}: ${item.valor}`);
+      if (itens.length === 0) return null;
+      return `## ${secao.titulo}\n${itens.join("\n")}`;
+    })
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 export function montarConteudoFicha(dados: DadosFicha): ConteudoFicha {
   const mapaRespostas = new Map(dados.respostas.map((r) => [r.ID_Campo, r.Valor]));
 

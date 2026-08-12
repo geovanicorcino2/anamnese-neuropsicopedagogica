@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { iniciarBanco } from "@main/db";
 import { registrarHandlersIpc } from "@main/ipc/handlers";
 import { instalarMenuAplicativo, instalarMenuContexto } from "@main/menu";
+import { fazerBackupSilencioso } from "@main/backup/backupService";
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -57,4 +58,11 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
   }
+});
+
+// Backup automático: se o usuário configurou uma pasta (aba Backup), cada fechamento do app
+// grava uma cópia fresca do banco lá — cobre o cenário de "fechei o dia e o notebook quebrou
+// antes de eu abrir de novo". Silencioso: nunca impede o app de fechar.
+app.on("before-quit", () => {
+  fazerBackupSilencioso();
 });

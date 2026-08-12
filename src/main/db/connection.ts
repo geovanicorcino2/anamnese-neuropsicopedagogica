@@ -2,7 +2,14 @@ import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
 import { app } from "electron";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { MIGRACOES_V2, SCHEMA_SQL, SCHEMA_VERSAO_ATUAL } from "@core/db/schemaSql";
+import {
+  MIGRACOES_V2,
+  MIGRACOES_V3,
+  MIGRACOES_V4,
+  MIGRACOES_V5,
+  SCHEMA_SQL,
+  SCHEMA_VERSAO_ATUAL,
+} from "@core/db/schemaSql";
 
 let sqlJsPromise: Promise<SqlJsStatic> | null = null;
 let db: Database | null = null;
@@ -71,6 +78,36 @@ function rodarMigracoes(bancoAberto: Database): void {
     }
   }
 
+  if (versaoAtual < 3) {
+    for (const statement of MIGRACOES_V3) {
+      try {
+        bancoAberto.run(statement);
+      } catch {
+        // coluna já existe — segue o jogo.
+      }
+    }
+  }
+
+  if (versaoAtual < 4) {
+    for (const statement of MIGRACOES_V4) {
+      try {
+        bancoAberto.run(statement);
+      } catch {
+        // coluna já existe — segue o jogo.
+      }
+    }
+  }
+
+  if (versaoAtual < 5) {
+    for (const statement of MIGRACOES_V5) {
+      try {
+        bancoAberto.run(statement);
+      } catch {
+        // coluna já existe — segue o jogo.
+      }
+    }
+  }
+
   bancoAberto.run(
     "INSERT INTO Meta (chave, valor) VALUES ('schema_versao', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor",
     [String(SCHEMA_VERSAO_ATUAL)],
@@ -81,6 +118,15 @@ export function persistirBanco(): void {
   if (!db || !dbFilePath) return;
   const bytes = db.export();
   writeFileSync(dbFilePath, Buffer.from(bytes));
+}
+
+// Caminho do arquivo .db em disco — usado pelo serviço de backup pra copiar/restaurar o arquivo
+// diretamente (fora do fluxo normal de leitura/escrita via sql.js em memória).
+export function caminhoDoBancoAtual(): string {
+  if (!dbFilePath) {
+    throw new Error("Banco de dados ainda não foi aberto — chame abrirBanco() antes.");
+  }
+  return dbFilePath;
 }
 
 function precisaEstarAberto(): Database {

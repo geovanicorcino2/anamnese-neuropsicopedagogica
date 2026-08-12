@@ -72,6 +72,16 @@ export function FichaDetalhe(): React.JSX.Element {
         </div>
       </Card>
 
+      <Card>
+        <div
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
+          onClick={() => navegar(`/fichas/${ficha.ID_Ficha}/historico-medico`)}
+        >
+          <span style={{ fontWeight: 600 }}>Histórico médico — relatórios, laudos e encaminhamentos</span>
+          <span style={{ color: "var(--cor-roxo-escuro)" }}>Gerenciar →</span>
+        </div>
+      </Card>
+
       {ANAMNESE_SCHEMA.map((secao) => {
         const progresso = calcularProgressoSecao(secao, respostas);
         return (

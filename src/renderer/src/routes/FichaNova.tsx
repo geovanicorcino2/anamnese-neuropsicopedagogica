@@ -10,6 +10,7 @@ export function FichaNova(): React.JSX.Element {
   const [nome, setNome] = useState("");
   const [dataNascimento, setDataNascimento] = useState("");
   const [escola, setEscola] = useState("");
+  const [dataInicioAcompanhamento, setDataInicioAcompanhamento] = useState("");
   const [salvando, setSalvando] = useState(false);
   const navegar = useNavigate();
 
@@ -20,6 +21,7 @@ export function FichaNova(): React.JSX.Element {
       nomeCrianca: nome.trim(),
       dataNascimento: dataNascimento || null,
       escola: escola || null,
+      dataInicioAcompanhamento: dataInicioAcompanhamento || null,
     });
     navegar(`/fichas/${ficha.ID_Ficha}`);
   }
@@ -37,6 +39,13 @@ export function FichaNova(): React.JSX.Element {
           onChange={setDataNascimento}
         />
         <FormField id="escola" rotulo="Escola" tipo="texto" valor={escola} onChange={setEscola} />
+        <FormField
+          id="data_inicio_acompanhamento"
+          rotulo="Data de início do acompanhamento"
+          tipo="data"
+          valor={dataInicioAcompanhamento}
+          onChange={setDataInicioAcompanhamento}
+        />
         <div style={{ display: "flex", gap: 8 }}>
           <Button onClick={criar} disabled={!nome.trim() || salvando}>
             Criar ficha

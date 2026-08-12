@@ -1,10 +1,14 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { AvisoBackup } from "./AvisoBackup";
 
 const ITENS_NAV = [
   { rota: "/", rotulo: "Início", fim: true },
   { rota: "/fichas", rotulo: "Fichas", fim: false },
   { rota: "/perfil", rotulo: "Perfil", fim: true },
+  { rota: "/backup", rotulo: "Backup", fim: true },
   { rota: "/sugestoes", rotulo: "Sugestões de Intervenção", fim: true },
+  { rota: "/relatorio-final", rotulo: "Relatório Final", fim: true },
+  { rota: "/agenda", rotulo: "Agenda", fim: true },
 ] as const;
 
 export function Layout(): React.JSX.Element {
@@ -31,6 +35,7 @@ export function Layout(): React.JSX.Element {
       <main className="layout__conteudo">
         <Outlet />
       </main>
+      <AvisoBackup />
     </div>
   );
 }
