@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell } from "electron";
 import { join } from "node:path";
 import { iniciarBanco } from "@main/db";
 import { registrarHandlersIpc } from "@main/ipc/handlers";
+import { instalarMenuAplicativo, instalarMenuContexto } from "@main/menu";
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -28,6 +29,8 @@ function createWindow(): void {
     return { action: "deny" };
   });
 
+  instalarMenuContexto(win);
+
   const devServerUrl = process.env["ELECTRON_RENDERER_URL"];
   if (devServerUrl) {
     win.loadURL(devServerUrl);
@@ -38,6 +41,7 @@ function createWindow(): void {
 
 app.whenReady().then(async () => {
   app.setAppUserModelId("br.com.corcinoconsultoria.anamnese");
+  instalarMenuAplicativo();
 
   await iniciarBanco();
   registrarHandlersIpc();

@@ -1,4 +1,5 @@
 import type { CampoAnamnese } from "@core/data/anamneseSchema";
+import { campoDeveAparecer } from "@core/services/progressoFicha";
 import { FormField } from "./FormField";
 import { Select } from "./Select";
 import { CampoSimNao } from "./CampoSimNao";
@@ -19,6 +20,7 @@ export function FormularioSecao({ campos, valores, onChangeValor }: Props): Reac
     <div className="formulario-secao__grid">
       {campos
         .filter((campo) => campo.tipo !== "tabela_familiares")
+        .filter((campo) => campoDeveAparecer(campo, campos, valores))
         .map((campo) => {
           const valor = valores[campo.id] ?? "";
           const classeCampo =

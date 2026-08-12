@@ -23,6 +23,10 @@ export interface CampoAnamnese {
   tipo: TipoCampo;
   opcoes?: string[];
   campoDetalheId?: string;
+  // Valor que faz o campo apontado por campoDetalheId passar a ser relevante — pra "selecao"/
+  // "sim_nao" precisa bater exatamente; pra "multipla_escolha" precisa estar entre as opções
+  // selecionadas. Sem campoDetalheId, este campo não tem efeito.
+  valorGatilho?: string;
   obrigatorio?: boolean;
 }
 
@@ -37,10 +41,10 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
     id: "identificacao",
     titulo: "Identificação",
     campos: [
-      { id: "identificacao.nome_crianca", rotulo: "Nome", tipo: "texto", obrigatorio: true },
+      // Nome, data de nascimento e escola NÃO ficam aqui — já são colunas da própria ficha
+      // (preenchidas na criação, tabela Fichas) e apareciam duplicadas (sempre vazias) aqui.
       { id: "identificacao.idade_anos", rotulo: "Idade (anos)", tipo: "numero" },
       { id: "identificacao.idade_meses", rotulo: "Idade (meses)", tipo: "numero" },
-      { id: "identificacao.data_nascimento", rotulo: "Data de nascimento", tipo: "data" },
       { id: "identificacao.natural_de", rotulo: "Natural de", tipo: "texto" },
       { id: "identificacao.escolaridade", rotulo: "Escolaridade", tipo: "texto" },
       {
@@ -50,7 +54,6 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         opcoes: ["Manhã", "Tarde", "Noite", "Integral"],
       },
       { id: "identificacao.horario", rotulo: "Horário", tipo: "texto" },
-      { id: "identificacao.escola", rotulo: "Escola", tipo: "texto" },
       {
         id: "identificacao.publica_privada",
         rotulo: "Escola pública ou privada",
@@ -66,6 +69,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         tipo: "selecao",
         opcoes: ["Sim", "Não", "Outro"],
         campoDetalheId: "identificacao.encaminhado_outro_detalhe",
+        valorGatilho: "Outro",
       },
       { id: "identificacao.encaminhado_outro_detalhe", rotulo: "Qual", tipo: "texto" },
       { id: "identificacao.pai_nome", rotulo: "Nome do pai", tipo: "texto" },
@@ -91,6 +95,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         tipo: "selecao",
         opcoes: ["Casados", "Separados", "Divorciados", "União estável", "Viúvo(a)", "Outro"],
         campoDetalheId: "composicao_familiar.relacao_pais_outro_detalhe",
+        valorGatilho: "Outro",
       },
       { id: "composicao_familiar.relacao_pais_outro_detalhe", rotulo: "Qual", tipo: "texto" },
       {
@@ -140,6 +145,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         rotulo: "Acompanhamento pré-natal",
         tipo: "sim_nao",
         campoDetalheId: "gestacao.acompanhamento_prenatal_detalhe",
+        valorGatilho: "Sim",
       },
       { id: "gestacao.acompanhamento_prenatal_detalhe", rotulo: "Detalhes", tipo: "texto" },
       {
@@ -147,6 +153,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         rotulo: "Ingestão de drogas (lícitas e/ou ilícitas)",
         tipo: "sim_nao",
         campoDetalheId: "gestacao.ingestao_drogas_detalhe",
+        valorGatilho: "Sim",
       },
       { id: "gestacao.ingestao_drogas_detalhe", rotulo: "Quais", tipo: "texto" },
       {
@@ -154,6 +161,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         rotulo: "Quedas ou acidentes durante a gestação",
         tipo: "sim_nao",
         campoDetalheId: "gestacao.quedas_acidentes_detalhe",
+        valorGatilho: "Sim",
       },
       { id: "gestacao.quedas_acidentes_detalhe", rotulo: "Detalhes", tipo: "texto" },
       {
@@ -161,6 +169,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         rotulo: "Tomou alguma medicação",
         tipo: "sim_nao",
         campoDetalheId: "gestacao.medicacao_detalhe",
+        valorGatilho: "Sim",
       },
       { id: "gestacao.medicacao_detalhe", rotulo: "Qual", tipo: "texto" },
       {
@@ -169,6 +178,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         tipo: "multipla_escolha",
         opcoes: ["Rubéola", "Toxoplasmose", "Sífilis", "Hipertensão", "Diabetes", "Outras"],
         campoDetalheId: "gestacao.doencas_outras_detalhe",
+        valorGatilho: "Outras",
       },
       { id: "gestacao.doencas_outras_detalhe", rotulo: "Quais outras", tipo: "texto" },
       { id: "gestacao.condicoes_emocionais", rotulo: "Condições emocionais", tipo: "texto_longo" },
@@ -202,6 +212,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         rotulo: "Mamou no peito",
         tipo: "sim_nao",
         campoDetalheId: "alimentacao.mamou_peito_tempo",
+        valorGatilho: "Sim",
       },
       { id: "alimentacao.mamou_peito_tempo", rotulo: "Tempo", tipo: "texto" },
       {
@@ -209,6 +220,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         rotulo: "Tomou mamadeira",
         tipo: "sim_nao",
         campoDetalheId: "alimentacao.tomou_mamadeira_tempo",
+        valorGatilho: "Sim",
       },
       { id: "alimentacao.tomou_mamadeira_tempo", rotulo: "Tempo", tipo: "texto" },
       { id: "alimentacao.hora_para_refeicoes", rotulo: "Hoje tem hora para as refeições", tipo: "sim_nao" },
@@ -223,6 +235,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         rotulo: "Faz as refeições com a família",
         tipo: "sim_nao",
         campoDetalheId: "alimentacao.refeicoes_com_familia_detalhe",
+        valorGatilho: "Sim",
       },
       { id: "alimentacao.refeicoes_com_familia_detalhe", rotulo: "Onde? Vendo TV?", tipo: "texto" },
       { id: "alimentacao.preferencia_alimentar", rotulo: "Preferência alimentar", tipo: "texto_longo" },
@@ -262,6 +275,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         rotulo: "Faz uso de medicação",
         tipo: "sim_nao",
         campoDetalheId: "historia_clinica.uso_medicacao_detalhe",
+        valorGatilho: "Sim",
       },
       { id: "historia_clinica.uso_medicacao_detalhe", rotulo: "Qual", tipo: "texto" },
       { id: "historia_clinica.acompanhamentos_saude", rotulo: "Acompanhamentos que faz na área da saúde", tipo: "texto_longo" },
@@ -303,6 +317,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         rotulo: "Acredita que tenha alguma dificuldade motora",
         tipo: "sim_nao",
         campoDetalheId: "desenvolvimento_psicomotor.dificuldade_motora_detalhe",
+        valorGatilho: "Sim",
       },
       { id: "desenvolvimento_psicomotor.dificuldade_motora_detalhe", rotulo: "Qual", tipo: "texto" },
     ],
@@ -331,6 +346,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         rotulo: "Fez uso de bico",
         tipo: "sim_nao",
         campoDetalheId: "desenvolvimento_linguagem.uso_bico_ate_idade",
+        valorGatilho: "Sim",
       },
       { id: "desenvolvimento_linguagem.uso_bico_ate_idade", rotulo: "Até que idade", tipo: "texto" },
       {
@@ -359,6 +375,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         rotulo: "Repetiu de ano",
         tipo: "sim_nao",
         campoDetalheId: "escolaridade.repetiu_ano_motivo",
+        valorGatilho: "Sim",
       },
       { id: "escolaridade.repetiu_ano_motivo", rotulo: "Por quê", tipo: "texto" },
       {
@@ -441,6 +458,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         rotulo: "Tem algum medo",
         tipo: "sim_nao",
         campoDetalheId: "comportamento.tem_medo_qual",
+        valorGatilho: "Sim",
       },
       { id: "comportamento.tem_medo_qual", rotulo: "Qual", tipo: "texto" },
       { id: "comportamento.em_familia", rotulo: "Como se comporta em família", tipo: "texto_longo" },
@@ -461,6 +479,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         rotulo: "Algum problema",
         tipo: "sim_nao",
         campoDetalheId: "visao.problema_qual",
+        valorGatilho: "Sim",
       },
       { id: "visao.problema_qual", rotulo: "Qual", tipo: "texto" },
       { id: "visao.usa_oculos", rotulo: "Usa óculos", tipo: "sim_nao" },
@@ -476,6 +495,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         rotulo: "Algum problema",
         tipo: "sim_nao",
         campoDetalheId: "audicao.problema_qual",
+        valorGatilho: "Sim",
       },
       { id: "audicao.problema_qual", rotulo: "Qual", tipo: "texto" },
       { id: "audicao.cirurgia", rotulo: "Cirurgia", tipo: "sim_nao" },
@@ -493,6 +513,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         rotulo: "Tem tiques nervosos",
         tipo: "sim_nao",
         campoDetalheId: "habitos.tiques_nervosos_qual",
+        valorGatilho: "Sim",
       },
       { id: "habitos.tiques_nervosos_qual", rotulo: "Qual", tipo: "texto" },
       {
@@ -500,6 +521,7 @@ export const ANAMNESE_SCHEMA: SecaoAnamnese[] = [
         rotulo: "Alguma mania repetitiva",
         tipo: "sim_nao",
         campoDetalheId: "habitos.mania_repetitiva_qual",
+        valorGatilho: "Sim",
       },
       { id: "habitos.mania_repetitiva_qual", rotulo: "Qual", tipo: "texto" },
       {

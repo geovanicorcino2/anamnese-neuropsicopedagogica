@@ -8,6 +8,7 @@ import { FichaSecao } from "./routes/FichaSecao";
 import { FichaFamiliares } from "./routes/FichaFamiliares";
 import { FichaExportar } from "./routes/FichaExportar";
 import { Perfil } from "./routes/Perfil";
+import { Sugestoes } from "./routes/Sugestoes";
 
 export default function App(): React.JSX.Element {
   return (
@@ -21,6 +22,7 @@ export default function App(): React.JSX.Element {
         <Route path="/fichas/:id/familiares" element={<FichaFamiliares />} />
         <Route path="/fichas/:id/exportar" element={<FichaExportar />} />
         <Route path="/perfil" element={<Perfil />} />
+        <Route path="/sugestoes" element={<Sugestoes />} />
       </Route>
     </Routes>
   );

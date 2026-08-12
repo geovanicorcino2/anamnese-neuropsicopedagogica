@@ -2,7 +2,7 @@ import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
 import { app } from "electron";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { SCHEMA_SQL } from "@core/db/schemaSql";
+import { MIGRACOES_V2, SCHEMA_SQL, SCHEMA_VERSAO_ATUAL } from "@core/db/schemaSql";
 
 let sqlJsPromise: Promise<SqlJsStatic> | null = null;
 let db: Database | null = null;
@@ -38,8 +38,43 @@ export async function abrirBanco(): Promise<Database> {
   const bytesExistentes = existsSync(dbFilePath) ? readFileSync(dbFilePath) : undefined;
   db = bytesExistentes ? new SQL.Database(bytesExistentes) : new SQL.Database();
   db.run(SCHEMA_SQL);
+  rodarMigracoes(db);
+  persistirBanco();
 
   return db;
+}
+
+function versaoSchemaSalva(bancoAberto: Database): number {
+  const stmt = bancoAberto.prepare("SELECT valor FROM Meta WHERE chave = 'schema_versao'");
+  try {
+    if (!stmt.step()) return 0;
+    return Number(stmt.getAsObject().valor) || 0;
+  } finally {
+    stmt.free();
+  }
+}
+
+// ALTER TABLE ADD COLUMN não tem "IF NOT EXISTS" no SQLite — cada statement roda dentro do
+// próprio try/catch, então mesmo que a migração já tenha rodado antes (ou tenha rodado parcial),
+// repetir não quebra o app.
+function rodarMigracoes(bancoAberto: Database): void {
+  const versaoAtual = versaoSchemaSalva(bancoAberto);
+  if (versaoAtual >= SCHEMA_VERSAO_ATUAL) return;
+
+  if (versaoAtual < 2) {
+    for (const statement of MIGRACOES_V2) {
+      try {
+        bancoAberto.run(statement);
+      } catch {
+        // coluna já existe — segue o jogo.
+      }
+    }
+  }
+
+  bancoAberto.run(
+    "INSERT INTO Meta (chave, valor) VALUES ('schema_versao', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor",
+    [String(SCHEMA_VERSAO_ATUAL)],
+  );
 }
 
 export function persistirBanco(): void {

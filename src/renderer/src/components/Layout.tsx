@@ -4,6 +4,7 @@ const ITENS_NAV = [
   { rota: "/", rotulo: "Início", fim: true },
   { rota: "/fichas", rotulo: "Fichas", fim: false },
   { rota: "/perfil", rotulo: "Perfil", fim: true },
+  { rota: "/sugestoes", rotulo: "Sugestões de Intervenção", fim: true },
 ] as const;
 
 export function Layout(): React.JSX.Element {

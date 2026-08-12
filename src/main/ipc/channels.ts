@@ -16,7 +16,14 @@ export const CANAIS = {
 
   perfilGet: "perfil:get",
   perfilUpdate: "perfil:update",
+  perfilUploadLogo: "perfil:uploadLogo",
+  perfilRemoverLogo: "perfil:removerLogo",
+  perfilUploadBorda: "perfil:uploadBorda",
+  perfilRemoverBorda: "perfil:removerBorda",
 
   exportarDocx: "exportar:docx",
   exportarPdf: "exportar:pdf",
+
+  iaGerarSugestoes: "ia:gerarSugestoes",
+  iaObterSugestao: "ia:obterSugestao",
 } as const;

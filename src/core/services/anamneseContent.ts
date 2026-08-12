@@ -1,5 +1,6 @@
-import { ANAMNESE_SCHEMA } from "@core/data/anamneseSchema";
+import { ANAMNESE_SCHEMA, type TipoCampo } from "@core/data/anamneseSchema";
 import type { Familiar, Ficha, Perfil, RespostaFicha } from "@core/db/types";
+import { idsDeCamposDetalhe, valorAtingeGatilho } from "@core/services/progressoFicha";
 
 const SEPARADOR_MULTIPLA_ESCOLHA = ";";
 const VAZIO = "—";
@@ -7,6 +8,7 @@ const VAZIO = "—";
 export interface ItemConteudo {
   rotulo: string;
   valor: string;
+  tipo: TipoCampo;
 }
 
 export interface SecaoConteudo {
@@ -55,16 +57,28 @@ function formatarValor(tipo: string, valorBruto: string | undefined): string {
 export function montarConteudoFicha(dados: DadosFicha): ConteudoFicha {
   const mapaRespostas = new Map(dados.respostas.map((r) => [r.ID_Campo, r.Valor]));
 
-  const secoes: SecaoConteudo[] = ANAMNESE_SCHEMA.map((secao) => ({
-    id: secao.id,
-    titulo: secao.titulo,
-    itens: secao.campos
-      .filter((campo) => campo.tipo !== "tabela_familiares")
+  const secoes: SecaoConteudo[] = ANAMNESE_SCHEMA.map((secao) => {
+    const campos = secao.campos.filter((campo) => campo.tipo !== "tabela_familiares");
+    const detalheIds = idsDeCamposDetalhe(campos);
+
+    const itens = campos
+      .filter((campo) => {
+        // Detalhe vazio de um campo cuja resposta não pediu detalhe: omitir do relatório — é
+        // exatamente o tipo de "informação duplicada/irrelevante" que o layout compacto evita.
+        if (!detalheIds.has(campo.id)) return true;
+        const pai = campos.find((c) => c.campoDetalheId === campo.id);
+        const valor = mapaRespostas.get(campo.id);
+        if (valor) return true;
+        return !pai || valorAtingeGatilho(pai, mapaRespostas.get(pai.id) ?? "");
+      })
       .map((campo) => ({
         rotulo: campo.rotulo,
         valor: formatarValor(campo.tipo, mapaRespostas.get(campo.id)),
-      })),
-  }));
+        tipo: campo.tipo,
+      }));
+
+    return { id: secao.id, titulo: secao.titulo, itens };
+  });
 
   return {
     nomeCrianca: dados.ficha.Nome_Crianca,

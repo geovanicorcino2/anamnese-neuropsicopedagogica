@@ -3,10 +3,11 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { ConteudoFicha } from "@core/services/anamneseContent";
+import type { IdentidadeVisualConfig } from "@core/services/identidadeVisualConfig";
 import { montarHtmlFicha } from "@main/export/pdfHtmlTemplate";
 
-export async function gerarPdfAnamnese(conteudo: ConteudoFicha): Promise<Uint8Array> {
-  const html = montarHtmlFicha(conteudo);
+export async function gerarPdfAnamnese(conteudo: ConteudoFicha, identidade: IdentidadeVisualConfig): Promise<Uint8Array> {
+  const html = montarHtmlFicha(conteudo, identidade);
   const pastaTemp = mkdtempSync(path.join(app.getPath("temp"), "anamnese-pdf-"));
   const caminhoHtml = path.join(pastaTemp, `${randomUUID()}.html`);
   writeFileSync(caminhoHtml, html, "utf8");

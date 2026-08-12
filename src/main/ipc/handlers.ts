@@ -5,11 +5,14 @@ import {
   fichasRepository,
   perfilRepository,
   respostasRepository,
+  sugestoesRepository,
 } from "@main/db";
 import type { NovaFicha, PatchFicha } from "@main/db/repositories/fichasRepository";
 import type { NovoFamiliar, PatchFamiliar } from "@main/db/repositories/familiaresRepository";
 import type { PatchPerfil } from "@main/db/repositories/perfilRepository";
 import { exportarFichaDocx, exportarFichaPdf } from "@main/export/exportarFicha";
+import { escolherImagem } from "@main/perfil/uploadImagem";
+import { gerarSugestoesParaFicha } from "@main/ia/gerarSugestoes";
 
 export function registrarHandlersIpc(): void {
   ipcMain.handle(CANAIS.fichasList, () => fichasRepository.listFichas());
@@ -46,6 +49,30 @@ export function registrarHandlersIpc(): void {
   ipcMain.handle(CANAIS.perfilGet, () => perfilRepository.getPerfil());
   ipcMain.handle(CANAIS.perfilUpdate, (_evento, patch: PatchPerfil) => perfilRepository.updatePerfil(patch));
 
+  ipcMain.handle(CANAIS.perfilUploadLogo, async () => {
+    const imagem = await escolherImagem("Escolher logo do relatório");
+    if (!imagem) return { cancelado: true };
+    perfilRepository.updatePerfil({ Logo_Base64: imagem.base64, Logo_Mime: imagem.mime });
+    return { cancelado: false, perfil: perfilRepository.getPerfil() };
+  });
+  ipcMain.handle(CANAIS.perfilRemoverLogo, () => {
+    perfilRepository.updatePerfil({ Logo_Base64: null, Logo_Mime: null });
+    return perfilRepository.getPerfil();
+  });
+  ipcMain.handle(CANAIS.perfilUploadBorda, async () => {
+    const imagem = await escolherImagem("Escolher imagem de borda do relatório");
+    if (!imagem) return { cancelado: true };
+    perfilRepository.updatePerfil({ Borda_Base64: imagem.base64, Borda_Mime: imagem.mime });
+    return { cancelado: false, perfil: perfilRepository.getPerfil() };
+  });
+  ipcMain.handle(CANAIS.perfilRemoverBorda, () => {
+    perfilRepository.updatePerfil({ Borda_Base64: null, Borda_Mime: null });
+    return perfilRepository.getPerfil();
+  });
+
   ipcMain.handle(CANAIS.exportarDocx, (_evento, idFicha: string) => exportarFichaDocx(idFicha));
   ipcMain.handle(CANAIS.exportarPdf, (_evento, idFicha: string) => exportarFichaPdf(idFicha));
+
+  ipcMain.handle(CANAIS.iaGerarSugestoes, (_evento, idFicha: string) => gerarSugestoesParaFicha(idFicha));
+  ipcMain.handle(CANAIS.iaObterSugestao, (_evento, idFicha: string) => sugestoesRepository.getSugestao(idFicha));
 }

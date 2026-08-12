@@ -78,13 +78,15 @@ export function xmlImagemAncorada(opcoes: {
   alturaEmu: number;
   offsetXEmu: number;
   offsetYEmu: number;
+  relativeFrom?: "columnParagraph" | "page";
 }): string {
   const id = proximoIdDesenho++;
+  const [relFromH, relFromV] = opcoes.relativeFrom === "page" ? ["page", "page"] : ["column", "paragraph"];
   return `<w:p><w:r><w:rPr><w:noProof/></w:rPr><w:drawing>
 <wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="${251600000 + id}" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">
 <wp:simplePos x="0" y="0"/>
-<wp:positionH relativeFrom="column"><wp:posOffset>${opcoes.offsetXEmu}</wp:posOffset></wp:positionH>
-<wp:positionV relativeFrom="paragraph"><wp:posOffset>${opcoes.offsetYEmu}</wp:posOffset></wp:positionV>
+<wp:positionH relativeFrom="${relFromH}"><wp:posOffset>${opcoes.offsetXEmu}</wp:posOffset></wp:positionH>
+<wp:positionV relativeFrom="${relFromV}"><wp:posOffset>${opcoes.offsetYEmu}</wp:posOffset></wp:positionV>
 <wp:extent cx="${opcoes.larguraEmu}" cy="${opcoes.alturaEmu}"/>
 <wp:effectExtent l="0" t="0" r="0" b="0"/>
 <wp:wrapNone/>

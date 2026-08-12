@@ -1,25 +1,20 @@
 import type { ConteudoFicha } from "@core/services/anamneseContent";
+import type { IdentidadeVisualConfig } from "@core/services/identidadeVisualConfig";
 import {
   BORDA_ROXA,
   BORDA_VERDE,
-  LOGO_ANAPAULA_ALTURA_EMU,
-  LOGO_ANAPAULA_JPEG_BASE64,
-  LOGO_ANAPAULA_LARGURA_EMU,
-  LOGO_ANAPAULA_OFFSET_X_EMU,
-  LOGO_ANAPAULA_OFFSET_Y_EMU,
-  LOGO_HUMANA_ALTURA_EMU,
-  LOGO_HUMANA_LARGURA_EMU,
-  LOGO_HUMANA_OFFSET_X_EMU,
-  LOGO_HUMANA_OFFSET_Y_EMU,
-  LOGO_HUMANA_PNG_BASE64,
+  MARGEM_DIREITA_EMU,
   MARGEM_ESQUERDA_EMU,
+  PAGINA_LARGURA_EMU,
   emuParaPolegadas,
   type FormaDecorativa,
 } from "@main/assets/identidadeVisual";
+import { lerDimensoesImagem } from "@main/export/dimensoesImagem";
 
 // Distância do topo da página até a área do cabeçalho, extraída do w:pgMar original
 // (w:header="426" twips = 270510 EMU) — ver anamnese_identidade_visual.md.
 const DISTANCIA_CABECALHO_EMU = 270510;
+const ALTURA_LOGO_EMU = 900000;
 
 function escaparHtml(texto: string): string {
   return texto
@@ -50,24 +45,51 @@ function svgFormaDecorativa(forma: FormaDecorativa, instancia: "cabecalho" | "ro
   return `<svg class="forma-decorativa" style="${estilo}" viewBox="0 0 ${forma.viewBoxLargura} ${forma.viewBoxAltura}" xmlns="http://www.w3.org/2000/svg"><path d="${forma.path}" fill="${forma.corHex}" fill-opacity="${forma.alpha}"/></svg>`;
 }
 
-function imgLogo(opcoes: {
-  base64: string;
-  mime: string;
-  larguraEmu: number;
-  alturaEmu: number;
-  offsetXEmu: number;
-  offsetYEmu: number;
-  alt: string;
-}): string {
-  const leftEmu = MARGEM_ESQUERDA_EMU + opcoes.offsetXEmu;
-  const topEmu = DISTANCIA_CABECALHO_EMU + opcoes.offsetYEmu;
+function imgCanto(base64: string, mime: string, pos: { xEmu: number; yEmu: number; larguraEmu: number; alturaEmu: number }, alt: string): string {
+  const estilo = [
+    `left:${emuParaPolegadas(pos.xEmu)}in`,
+    `top:${emuParaPolegadas(pos.yEmu)}in`,
+    `width:${emuParaPolegadas(pos.larguraEmu)}in`,
+    `height:${emuParaPolegadas(pos.alturaEmu)}in`,
+    "object-fit:cover",
+  ].join(";");
+  return `<img class="forma-decorativa" style="${estilo}" src="data:${mime};base64,${base64}" alt="${escaparHtml(alt)}"/>`;
+}
+
+function htmlBorda(identidade: IdentidadeVisualConfig): string {
+  if (identidade.bordaBase64 && identidade.bordaMime) {
+    return [
+      imgCanto(identidade.bordaBase64, identidade.bordaMime, BORDA_VERDE.cabecalho, "Borda"),
+      imgCanto(identidade.bordaBase64, identidade.bordaMime, BORDA_ROXA.cabecalho, "Borda"),
+      imgCanto(identidade.bordaBase64, identidade.bordaMime, BORDA_VERDE.rodape, "Borda"),
+      imgCanto(identidade.bordaBase64, identidade.bordaMime, BORDA_ROXA.rodape, "Borda"),
+    ].join("\n");
+  }
+
+  return [
+    svgFormaDecorativa(BORDA_VERDE, "cabecalho"),
+    svgFormaDecorativa(BORDA_ROXA, "cabecalho"),
+    svgFormaDecorativa(BORDA_VERDE, "rodape"),
+    svgFormaDecorativa(BORDA_ROXA, "rodape"),
+  ].join("\n");
+}
+
+function htmlLogo(identidade: IdentidadeVisualConfig): string {
+  if (!identidade.logoBase64 || !identidade.logoMime) return "";
+
+  const dimensoes = lerDimensoesImagem(identidade.logoBase64, identidade.logoMime);
+  const larguraLogoEmu = Math.round(ALTURA_LOGO_EMU * (dimensoes.larguraPx / dimensoes.alturaPx));
+  const larguraConteudoEmu = PAGINA_LARGURA_EMU - MARGEM_ESQUERDA_EMU - MARGEM_DIREITA_EMU;
+  const leftEmu = MARGEM_ESQUERDA_EMU + Math.max(0, Math.round((larguraConteudoEmu - larguraLogoEmu) / 2));
+  const topEmu = DISTANCIA_CABECALHO_EMU + 40000;
+
   const estilo = [
     `left:${emuParaPolegadas(leftEmu)}in`,
     `top:${emuParaPolegadas(topEmu)}in`,
-    `width:${emuParaPolegadas(opcoes.larguraEmu)}in`,
-    `height:${emuParaPolegadas(opcoes.alturaEmu)}in`,
+    `width:${emuParaPolegadas(larguraLogoEmu)}in`,
+    `height:${emuParaPolegadas(ALTURA_LOGO_EMU)}in`,
   ].join(";");
-  return `<img class="logo" style="${estilo}" src="data:${opcoes.mime};base64,${opcoes.base64}" alt="${escaparHtml(opcoes.alt)}"/>`;
+  return `<img class="logo" style="${estilo}" src="data:${identidade.logoMime};base64,${identidade.logoBase64}" alt="Logo do relatório"/>`;
 }
 
 function tabelaFamiliaresHtml(familiares: ConteudoFicha["familiares"]): string {
@@ -80,42 +102,22 @@ function tabelaFamiliaresHtml(familiares: ConteudoFicha["familiares"]): string {
   return `<table><thead><tr><th>Nome</th><th>Idade</th><th>Relação</th></tr></thead><tbody>${linhas}</tbody></table>`;
 }
 
-export function montarHtmlFicha(conteudo: ConteudoFicha): string {
-  const decoracoes = [
-    svgFormaDecorativa(BORDA_VERDE, "cabecalho"),
-    svgFormaDecorativa(BORDA_ROXA, "cabecalho"),
-    svgFormaDecorativa(BORDA_VERDE, "rodape"),
-    svgFormaDecorativa(BORDA_ROXA, "rodape"),
-  ].join("\n");
+const TIPOS_CURTOS = new Set(["texto", "numero", "data", "hora", "sim_nao", "selecao"]);
 
-  const logos = [
-    imgLogo({
-      base64: LOGO_ANAPAULA_JPEG_BASE64,
-      mime: "image/jpeg",
-      larguraEmu: LOGO_ANAPAULA_LARGURA_EMU,
-      alturaEmu: LOGO_ANAPAULA_ALTURA_EMU,
-      offsetXEmu: LOGO_ANAPAULA_OFFSET_X_EMU,
-      offsetYEmu: LOGO_ANAPAULA_OFFSET_Y_EMU,
-      alt: "Logo Ana Paula M. Gontijo",
-    }),
-    imgLogo({
-      base64: LOGO_HUMANA_PNG_BASE64,
-      mime: "image/png",
-      larguraEmu: LOGO_HUMANA_LARGURA_EMU,
-      alturaEmu: LOGO_HUMANA_ALTURA_EMU,
-      offsetXEmu: LOGO_HUMANA_OFFSET_X_EMU,
-      offsetYEmu: LOGO_HUMANA_OFFSET_Y_EMU,
-      alt: "Logo Humana Clínica",
-    }),
-  ].join("\n");
+function itemHtml(item: ConteudoFicha["secoes"][number]["itens"][number]): string {
+  return `<p class="item"><b>${escaparHtml(item.rotulo)}:</b> ${comQuebrasDeLinha(item.valor)}</p>`;
+}
 
+export function montarHtmlFicha(conteudo: ConteudoFicha, identidade: IdentidadeVisualConfig): string {
   const secoesHtml = conteudo.secoes
     .map((secao) => {
-      const itensHtml = secao.itens
-        .map((item) => `<p class="item"><b>${escaparHtml(item.rotulo)}:</b> ${comQuebrasDeLinha(item.valor)}</p>`)
-        .join("\n");
+      const curtos = secao.itens.filter((item) => TIPOS_CURTOS.has(item.tipo));
+      const longos = secao.itens.filter((item) => !TIPOS_CURTOS.has(item.tipo));
+
+      const grade = curtos.length > 0 ? `<div class="grade-curtos">${curtos.map(itemHtml).join("\n")}</div>` : "";
+      const itensLongos = longos.map(itemHtml).join("\n");
       const tabela = secao.id === "composicao_familiar" ? tabelaFamiliaresHtml(conteudo.familiares) : "";
-      return `<h3 class="secao">${escaparHtml(secao.titulo.toUpperCase())}</h3>\n${itensHtml}\n${tabela}`;
+      return `<h3 class="secao">${escaparHtml(secao.titulo.toUpperCase())}</h3>\n${grade}\n${itensLongos}\n${tabela}`;
     })
     .join("\n");
 
@@ -133,6 +135,7 @@ export function montarHtmlFicha(conteudo: ConteudoFicha): string {
   h1.titulo-ficha { text-align: center; font-size: 20pt; margin: 0 0 4pt; }
   h2.nome-crianca { text-align: center; font-size: 15pt; margin: 0 0 18pt; }
   h3.secao { font-size: 12.5pt; margin: 16pt 0 6pt; border-bottom: 1px solid #ccc; padding-bottom: 2pt; }
+  .grade-curtos { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18pt; }
   p.item { margin: 2pt 0; font-size: 10.5pt; }
   table { border-collapse: collapse; width: 100%; margin: 6pt 0; font-size: 10pt; }
   th, td { border: 1px solid #999; padding: 4pt 6pt; text-align: left; }
@@ -141,8 +144,8 @@ export function montarHtmlFicha(conteudo: ConteudoFicha): string {
 </style>
 </head>
 <body>
-${decoracoes}
-${logos}
+${htmlBorda(identidade)}
+${htmlLogo(identidade)}
 <div class="conteudo">
   <h1 class="titulo-ficha">FICHA DE ANAMNESE</h1>
   <h2 class="nome-crianca">${escaparHtml(conteudo.nomeCrianca)}</h2>

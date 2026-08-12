@@ -2,19 +2,13 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { Ficha, RespostaFicha } from "@core/db/types";
 import { ANAMNESE_SCHEMA } from "@core/data/anamneseSchema";
+import { calcularProgressoSecao } from "@core/services/progressoFicha";
 import { ScreenContainer } from "../components/ScreenContainer";
 import { SectionHeader } from "../components/SectionHeader";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { Chip } from "../components/Chip";
 import { ProgressBar } from "../components/ProgressBar";
-
-function calcularProgressoSecao(secao: (typeof ANAMNESE_SCHEMA)[number], respostas: Map<string, string>): number {
-  const campos = secao.campos.filter((campo) => campo.tipo !== "tabela_familiares");
-  if (campos.length === 0) return 100;
-  const preenchidos = campos.filter((campo) => (respostas.get(campo.id) ?? "").trim() !== "").length;
-  return Math.round((preenchidos / campos.length) * 100);
-}
 
 export function FichaDetalhe(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
