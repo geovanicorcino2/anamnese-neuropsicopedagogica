@@ -1,6 +1,6 @@
 {
   "name": "anamnese-neuropsicopedagogica",
-  "version": "0.3.0",
+  "version": "0.3.5",
   "description": "App desktop (Windows) para preenchimento e exportação da ficha de anamnese neuropsicopedagógica de Ana Paula M. Gontijo.",
   "main": "./out/main/index.js",
   "author": "Corcino Consultoria",
