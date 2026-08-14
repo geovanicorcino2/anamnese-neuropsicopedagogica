@@ -286,3 +286,28 @@ textarea.campo__entrada {
 .formulario-secao__campo-largo {
   grid-column: 1 / -1;
 }
+
+/* Abas (hub de Pacientes) */
+.abas {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--cor-borda);
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+.abas__item {
+  padding: 10px 14px;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--cor-texto-suave);
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.abas__item:hover {
+  color: var(--cor-roxo-escuro);
+}
+.abas__item--ativo {
+  color: var(--cor-roxo-escuro);
+  border-bottom-color: var(--cor-roxo-escuro);
+}

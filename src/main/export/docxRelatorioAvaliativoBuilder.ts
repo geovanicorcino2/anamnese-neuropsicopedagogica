@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import type { ConteudoRelatorioFinal } from "@core/services/relatorioFinalContent";
+import type { ConteudoRelatorioAvaliativo } from "@core/services/relatorioAvaliativoContent";
 import type { IdentidadeVisualConfig } from "@core/services/identidadeVisualConfig";
 import {
   BORDA_ROXA,
@@ -30,8 +30,6 @@ const NAMESPACES_WORDML =
 
 const ALTURA_LOGO_EMU = 900000;
 
-// ABNT: margens esquerda/superior 3cm, direita/inferior 2cm (1cm = 360000 EMU = 566,93 twips) —
-// mesma formatação usada em docxIntervencaoBuilder.ts.
 const MARGEM_ESQUERDA_EMU = 1080000;
 const MARGEM_DIREITA_EMU = 720000;
 const MARGEM_SUPERIOR_TWIPS = 1701;
@@ -68,43 +66,62 @@ function tituloSecao(texto: string): string {
   return `<w:p><w:pPr><w:spacing w:before="240"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">${escaparXml(texto)}</w:t></w:r></w:p>`;
 }
 
-function montarCorpoDocumento(conteudo: ConteudoRelatorioFinal): string {
+// Layout exato do modelo real (RELATÓRIO AVALIATIVO HEITOR MIGUEL) — seções extraídas via Word
+// COM (estilo + negrito por parágrafo).
+function montarCorpoDocumento(conteudo: ConteudoRelatorioAvaliativo): string {
   const partes: string[] = [];
 
-  partes.push(paragrafo("RELATÓRIO FINAL", { negrito: true, tamanho: 32, centralizado: true }));
-  partes.push(paragrafo(" "));
+  partes.push(paragrafo("RELATÓRIO AVALIATIVO", { negrito: true, tamanho: 32, centralizado: true }));
+  partes.push(tituloSecao("Dados do paciente"));
 
-  partes.push(paragrafoItem("Criança", conteudo.nomeCrianca));
+  partes.push(paragrafoItem("Nome", conteudo.nomeCrianca));
+  partes.push(paragrafoItem("Idade", conteudo.idade));
   partes.push(paragrafoItem("Data de nascimento", conteudo.dataNascimento));
+  partes.push(paragrafoItem("Série/ano escolar", conteudo.serie));
+  partes.push(paragrafoItem("Turno", conteudo.turno));
   partes.push(paragrafoItem("Escola", conteudo.escola));
-  partes.push(paragrafoItem("Data", new Date(conteudo.geradoEm).toLocaleDateString("pt-BR")));
-  partes.push(paragrafoItem("Profissional", `${conteudo.nomeProfissional} — ${conteudo.tituloProfissional}`));
+  partes.push(paragrafoItem("Nome dos responsáveis", conteudo.nomeResponsaveis));
+  partes.push(paragrafoItem("Data do início da avaliação", conteudo.dataInicioAvaliacao));
+  partes.push(paragrafoItem("Data de encerramento", conteudo.dataEncerramento));
+  partes.push(paragrafoItem("Profissional responsável", `${conteudo.tituloProfissional} ${conteudo.nomeProfissional}`));
 
-  partes.push(tituloSecao("Objetivo alcançado"));
-  partes.push(paragrafo(conteudo.objetivoAlcancado));
+  partes.push(tituloSecao("Objetivo da Avaliação"));
+  partes.push(paragrafoTextoIa(conteudo.objetivoAvaliacao));
 
-  partes.push(tituloSecao("Avaliação"));
-  partes.push(paragrafoItem("Atenção", conteudo.avaliacaoAtencao));
-  partes.push(paragrafoItem("Motivação", conteudo.avaliacaoMotivacao));
-  partes.push(paragrafoItem("Interação", conteudo.avaliacaoInteracao));
+  partes.push(tituloSecao("Histórico Escolar e Familiar"));
+  partes.push(paragrafoTextoIa(conteudo.historicoEscolarFamiliar));
 
-  partes.push(tituloSecao("Relatório"));
-  partes.push(paragrafoTextoIa(conteudo.relatorioGerado));
+  partes.push(tituloSecao("Aspectos Emocionais e Comportamentais"));
+  partes.push(paragrafoTextoIa(conteudo.aspectosEmocionaisComportamentais));
 
-  if (conteudo.observacoesFinais.trim()) {
-    partes.push(tituloSecao("Observações finais"));
-    partes.push(paragrafo(conteudo.observacoesFinais));
-  }
+  partes.push(tituloSecao("Metodologia da avaliação"));
+  partes.push(paragrafoTextoIa(conteudo.metodologiaAvaliacao));
+
+  partes.push(tituloSecao("Aspectos Cognitivos e de Aprendizagem"));
+  partes.push(paragrafoTextoIa(conteudo.aspectosCognitivosAprendizagem));
+
+  partes.push(tituloSecao("Instrumentos Utilizados"));
+  partes.push(paragrafoTextoIa(conteudo.instrumentosUtilizados));
+
+  partes.push(tituloSecao("Resultados da Avaliação"));
+  partes.push(paragrafoTextoIa(conteudo.resultadosAvaliacao));
+
+  partes.push(tituloSecao("Intervenções Aplicadas"));
+  partes.push(paragrafoTextoIa(conteudo.intervencoesAplicadas));
+
+  partes.push(tituloSecao("Recomendações"));
+  partes.push(paragrafoTextoIa(conteudo.recomendacoes));
 
   partes.push(paragrafo(" "));
   partes.push(paragrafo(" "));
-  partes.push(paragrafo("___________________________________", { centralizado: true }));
-  partes.push(paragrafo(`Assinatura ${conteudo.tituloProfissional}`, { centralizado: true }));
+  partes.push(paragrafo("__________________________________", { centralizado: true }));
+  partes.push(paragrafo(conteudo.nomeProfissional, { centralizado: true }));
+  partes.push(paragrafo(conteudo.tituloProfissional, { centralizado: true }));
 
   return partes.join("");
 }
 
-function montarDocumentXml(conteudo: ConteudoRelatorioFinal): string {
+function montarDocumentXml(conteudo: ConteudoRelatorioAvaliativo): string {
   const corpo = montarCorpoDocumento(conteudo);
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document ${NAMESPACES_WORDML}><w:body>${corpo}
@@ -129,12 +146,12 @@ interface ImagemLogoHeader {
   nome: string;
 }
 
-// Logo customizada do Perfil (se configurada) OU, por padrão, as 2 logos originais do modelo
-// (Humana Clínica + Ana Paula) lado a lado, centralizadas como um par dentro da largura do
-// conteúdo deste documento — mesmo fallback de docxAnamneseBuilder.ts, mas recentralizado pras
-// margens ABNT deste documento (diferentes da margem do documento-modelo original da anamnese).
-// Sem esse fallback a logo simplesmente não aparecia quando nenhuma logo customizada estava
-// configurada no Perfil (era o caso reportado).
+// Logo customizada do Perfil (se configurada) OU, por padrão, as 2 logos originais do modelo,
+// cada uma numa ponta do conteúdo — mesmo layout do documento original da anamnese
+// (docxAnamneseBuilder.ts: Humana à direita, Ana Paula à esquerda). Antes as 2 ficavam
+// centralizadas como par, o que colocava as imagens EM CIMA do texto "NEUROPSICOPEDAGOGA
+// ESPECIALISTA EM ABA" (também centralizado) — nas pontas, o texto centralizado fica livre no
+// meio, sem sobreposição.
 function resolverImagensLogo(identidade: IdentidadeVisualConfig): ImagemLogoHeader[] {
   const larguraConteudoEmu = PAGINA_LARGURA_EMU - MARGEM_ESQUERDA_EMU - MARGEM_DIREITA_EMU;
 
@@ -159,11 +176,7 @@ function resolverImagensLogo(identidade: IdentidadeVisualConfig): ImagemLogoHead
 
   const larguraHumanaEmu = Math.round(ALTURA_LOGO_EMU * (LOGO_HUMANA_LARGURA_EMU / LOGO_HUMANA_ALTURA_EMU));
   const larguraAnaPaulaEmu = Math.round(ALTURA_LOGO_EMU * (LOGO_ANAPAULA_LARGURA_EMU / LOGO_ANAPAULA_ALTURA_EMU));
-  const espacoEntreEmu = 180000;
-  const offsetXInicialEmu = Math.max(
-    0,
-    Math.round((larguraConteudoEmu - (larguraHumanaEmu + espacoEntreEmu + larguraAnaPaulaEmu)) / 2),
-  );
+  const margemInternaEmu = 40000;
 
   return [
     {
@@ -172,7 +185,7 @@ function resolverImagensLogo(identidade: IdentidadeVisualConfig): ImagemLogoHead
       base64: LOGO_HUMANA_PNG_BASE64,
       larguraEmu: larguraHumanaEmu,
       alturaEmu: ALTURA_LOGO_EMU,
-      offsetXEmu: offsetXInicialEmu,
+      offsetXEmu: Math.max(margemInternaEmu, larguraConteudoEmu - larguraHumanaEmu - margemInternaEmu),
       offsetYEmu: 40000,
       nome: "Logo Humana Clínica de Saúde Integrada",
     },
@@ -182,16 +195,13 @@ function resolverImagensLogo(identidade: IdentidadeVisualConfig): ImagemLogoHead
       base64: LOGO_ANAPAULA_JPEG_BASE64,
       larguraEmu: larguraAnaPaulaEmu,
       alturaEmu: ALTURA_LOGO_EMU,
-      offsetXEmu: offsetXInicialEmu + larguraHumanaEmu + espacoEntreEmu,
+      offsetXEmu: margemInternaEmu,
       offsetYEmu: 40000,
       nome: "Logo Ana Paula M. Gontijo, Neuropsicopedagoga",
     },
   ];
 }
 
-// Posição relativeFrom="paragraph" — todas as logos precisam estar no MESMO <w:p>, senão cada
-// parágrafo novo desloca o "topo" de referência da próxima âncora (mesmo motivo documentado em
-// docxAnamneseBuilder.ts).
 function xmlLogosCabecalho(imagens: ImagemLogoHeader[]): string {
   const runs = imagens
     .map((imagem) =>
@@ -262,7 +272,7 @@ function xmlBordaRodape(identidade: IdentidadeVisualConfig): string {
 }
 
 function montarHeaderXml(
-  conteudo: ConteudoRelatorioFinal,
+  conteudo: ConteudoRelatorioAvaliativo,
   identidade: IdentidadeVisualConfig,
   imagensLogo: ImagemLogoHeader[],
 ): string {
@@ -298,8 +308,6 @@ ${xmlCampoPagina()}
 </w:ftr>`;
 }
 
-// ABNT: Times New Roman 12pt, espaçamento 1,5, parágrafo justificado por padrão — igual à
-// Sugestão de Intervenção (docxIntervencaoBuilder.ts).
 function montarStylesXml(): string {
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
@@ -345,8 +353,8 @@ function relacionamento(id: string, arquivo: string): string {
   return `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${arquivo}"/>`;
 }
 
-export async function gerarDocxRelatorioFinal(
-  conteudo: ConteudoRelatorioFinal,
+export async function gerarDocxRelatorioAvaliativo(
+  conteudo: ConteudoRelatorioAvaliativo,
   identidade: IdentidadeVisualConfig,
 ): Promise<Uint8Array> {
   const zip = new JSZip();

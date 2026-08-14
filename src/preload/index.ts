@@ -2,20 +2,24 @@ import { contextBridge, ipcRenderer } from "electron";
 import { CANAIS } from "@main/ipc/channels";
 import type {
   Agendamento,
+  AnexoPaciente,
+  CategoriaAnexoPaciente,
   DocumentoMedico,
   Familiar,
   Ficha,
   Perfil,
-  RelatorioFinal,
+  PlanejamentoIntervencao,
+  PlanoTerapeutico,
+  RelatorioAvaliativo,
   RespostaFicha,
-  SugestaoIA,
 } from "@core/db/types";
 import type { NovaFicha, PatchFicha } from "@main/db/repositories/fichasRepository";
 import type { NovoFamiliar, PatchFamiliar } from "@main/db/repositories/familiaresRepository";
 import type { PatchPerfil } from "@main/db/repositories/perfilRepository";
-import type { EntradaSugestao } from "@main/db/repositories/sugestoesRepository";
-import type { EntradaRelatorioFinal } from "@main/db/repositories/relatorioFinalRepository";
 import type { NovoAgendamento } from "@main/db/repositories/agendamentosRepository";
+import type { NovoPlanejamento, PatchPlanejamento } from "@main/db/repositories/planejamentosRepository";
+import type { PatchPlanoTerapeutico } from "@main/db/repositories/planosTerapeuticosRepository";
+import type { PatchRelatorioAvaliativo } from "@main/db/repositories/relatoriosAvaliativosRepository";
 import type { ArquivoBackup, PastaNuvemDetectada } from "@main/backup/backupService";
 
 const api = {
@@ -68,28 +72,63 @@ const api = {
       ipcRenderer.invoke(CANAIS.exportarDocx, idFicha),
     pdf: (idFicha: string): Promise<{ cancelado: boolean; caminho?: string }> =>
       ipcRenderer.invoke(CANAIS.exportarPdf, idFicha),
-    intervencaoDocx: (idFicha: string): Promise<{ cancelado: boolean; caminho?: string }> =>
-      ipcRenderer.invoke(CANAIS.exportarIntervencaoDocx, idFicha),
-    intervencaoPdf: (idFicha: string): Promise<{ cancelado: boolean; caminho?: string }> =>
-      ipcRenderer.invoke(CANAIS.exportarIntervencaoPdf, idFicha),
-    relatorioFinalDocx: (idFicha: string): Promise<{ cancelado: boolean; caminho?: string }> =>
-      ipcRenderer.invoke(CANAIS.exportarRelatorioFinalDocx, idFicha),
-    relatorioFinalPdf: (idFicha: string): Promise<{ cancelado: boolean; caminho?: string }> =>
-      ipcRenderer.invoke(CANAIS.exportarRelatorioFinalPdf, idFicha),
+    planejamentoDocx: (idPlanejamento: string): Promise<{ cancelado: boolean; caminho?: string }> =>
+      ipcRenderer.invoke(CANAIS.exportarPlanejamentoDocx, idPlanejamento),
+    planejamentoPdf: (idPlanejamento: string): Promise<{ cancelado: boolean; caminho?: string }> =>
+      ipcRenderer.invoke(CANAIS.exportarPlanejamentoPdf, idPlanejamento),
+    planoTerapeuticoDocx: (idPlano: string): Promise<{ cancelado: boolean; caminho?: string }> =>
+      ipcRenderer.invoke(CANAIS.exportarPlanoTerapeuticoDocx, idPlano),
+    planoTerapeuticoPdf: (idPlano: string): Promise<{ cancelado: boolean; caminho?: string }> =>
+      ipcRenderer.invoke(CANAIS.exportarPlanoTerapeuticoPdf, idPlano),
+    relatorioAvaliativoDocx: (idRelatorio: string): Promise<{ cancelado: boolean; caminho?: string }> =>
+      ipcRenderer.invoke(CANAIS.exportarRelatorioAvaliativoDocx, idRelatorio),
+    relatorioAvaliativoPdf: (idRelatorio: string): Promise<{ cancelado: boolean; caminho?: string }> =>
+      ipcRenderer.invoke(CANAIS.exportarRelatorioAvaliativoPdf, idRelatorio),
   },
-  ia: {
-    salvarEntrada: (idFicha: string, entrada: EntradaSugestao): Promise<SugestaoIA> =>
-      ipcRenderer.invoke(CANAIS.iaSalvarEntrada, idFicha, entrada),
-    gerarSugestoes: (idFicha: string): Promise<SugestaoIA> => ipcRenderer.invoke(CANAIS.iaGerarSugestoes, idFicha),
-    obterSugestao: (idFicha: string): Promise<SugestaoIA | undefined> =>
-      ipcRenderer.invoke(CANAIS.iaObterSugestao, idFicha),
+  planejamentos: {
+    listar: (idFicha: string): Promise<PlanejamentoIntervencao[]> =>
+      ipcRenderer.invoke(CANAIS.planejamentosList, idFicha),
+    criar: (dados: NovoPlanejamento): Promise<PlanejamentoIntervencao> =>
+      ipcRenderer.invoke(CANAIS.planejamentosCriar, dados),
+    atualizar: (id: string, idFicha: string, patch: PatchPlanejamento): Promise<PlanejamentoIntervencao> =>
+      ipcRenderer.invoke(CANAIS.planejamentosAtualizar, id, idFicha, patch),
+    gerar: (id: string): Promise<PlanejamentoIntervencao> => ipcRenderer.invoke(CANAIS.planejamentosGerar, id),
+    remover: (id: string, idFicha: string): Promise<void> =>
+      ipcRenderer.invoke(CANAIS.planejamentosRemover, id, idFicha),
   },
-  relatorioFinal: {
-    salvarEntrada: (idFicha: string, entrada: EntradaRelatorioFinal): Promise<RelatorioFinal> =>
-      ipcRenderer.invoke(CANAIS.relatorioFinalSalvarEntrada, idFicha, entrada),
-    gerar: (idFicha: string): Promise<RelatorioFinal> => ipcRenderer.invoke(CANAIS.relatorioFinalGerar, idFicha),
-    obter: (idFicha: string): Promise<RelatorioFinal | undefined> =>
-      ipcRenderer.invoke(CANAIS.relatorioFinalObter, idFicha),
+  planosTerapeuticos: {
+    listar: (idFicha: string): Promise<PlanoTerapeutico[]> =>
+      ipcRenderer.invoke(CANAIS.planosTerapeuticosList, idFicha),
+    criar: (idFicha: string, dataPlanejamento: string): Promise<PlanoTerapeutico> =>
+      ipcRenderer.invoke(CANAIS.planosTerapeuticosCriar, idFicha, dataPlanejamento),
+    atualizar: (id: string, idFicha: string, patch: PatchPlanoTerapeutico): Promise<PlanoTerapeutico> =>
+      ipcRenderer.invoke(CANAIS.planosTerapeuticosAtualizar, id, idFicha, patch),
+    gerar: (id: string): Promise<PlanoTerapeutico> => ipcRenderer.invoke(CANAIS.planosTerapeuticosGerar, id),
+    remover: (id: string, idFicha: string): Promise<void> =>
+      ipcRenderer.invoke(CANAIS.planosTerapeuticosRemover, id, idFicha),
+  },
+  relatoriosAvaliativos: {
+    listar: (idFicha: string): Promise<RelatorioAvaliativo[]> =>
+      ipcRenderer.invoke(CANAIS.relatoriosAvaliativosList, idFicha),
+    criar: (idFicha: string, dataInicioAvaliacao: string | null): Promise<RelatorioAvaliativo> =>
+      ipcRenderer.invoke(CANAIS.relatoriosAvaliativosCriar, idFicha, dataInicioAvaliacao),
+    atualizar: (id: string, idFicha: string, patch: PatchRelatorioAvaliativo): Promise<RelatorioAvaliativo> =>
+      ipcRenderer.invoke(CANAIS.relatoriosAvaliativosAtualizar, id, idFicha, patch),
+    gerar: (id: string): Promise<RelatorioAvaliativo> => ipcRenderer.invoke(CANAIS.relatoriosAvaliativosGerar, id),
+    remover: (id: string, idFicha: string): Promise<void> =>
+      ipcRenderer.invoke(CANAIS.relatoriosAvaliativosRemover, id, idFicha),
+  },
+  anexos: {
+    listar: (idFicha: string, categoria: CategoriaAnexoPaciente): Promise<AnexoPaciente[]> =>
+      ipcRenderer.invoke(CANAIS.anexosList, idFicha, categoria),
+    upload: (
+      idFicha: string,
+      categoria: CategoriaAnexoPaciente,
+      nomePersonalizado: string | null,
+    ): Promise<{ cancelado: boolean; anexo?: AnexoPaciente }> =>
+      ipcRenderer.invoke(CANAIS.anexosUpload, idFicha, categoria, nomePersonalizado),
+    remover: (id: string, idFicha: string): Promise<void> => ipcRenderer.invoke(CANAIS.anexosRemover, id, idFicha),
+    abrir: (id: string): Promise<void> => ipcRenderer.invoke(CANAIS.anexosAbrir, id),
   },
   agendamentos: {
     listarIntervalo: (dataInicio: string, dataFim: string): Promise<Agendamento[]> =>

@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import type { DocumentoMedico } from "@core/db/types";
 import { TIPOS_DOCUMENTO_MEDICO } from "@core/data/documentosMedicos";
-import { ScreenContainer } from "../components/ScreenContainer";
-import { SectionHeader } from "../components/SectionHeader";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { FormField } from "../components/FormField";
@@ -11,9 +9,10 @@ import { Select } from "../components/Select";
 import { EmptyState } from "../components/EmptyState";
 import { formatarDataHora } from "../utils/formatar";
 
+// Renderizada como aba dentro de PacienteDetalhe.tsx (o cabeçalho e a navegação de volta já
+// ficam por conta do hub) — sem ScreenContainer/SectionHeader próprios, senão duplica o padding.
 export function FichaHistoricoMedico(): React.JSX.Element {
   const { id } = useParams<{ id: string }>();
-  const navegar = useNavigate();
   const [documentos, setDocumentos] = useState<DocumentoMedico[] | null>(null);
   const [tipo, setTipo] = useState<string>(TIPOS_DOCUMENTO_MEDICO[0]);
   const [nomePersonalizado, setNomePersonalizado] = useState("");
@@ -61,20 +60,10 @@ export function FichaHistoricoMedico(): React.JSX.Element {
     carregar();
   }
 
-  if (!id) return <ScreenContainer>Ficha inválida.</ScreenContainer>;
+  if (!id) return <p>Paciente inválido.</p>;
 
   return (
-    <ScreenContainer>
-      <SectionHeader
-        titulo="Histórico médico"
-        subtitulo="Relatórios, laudos e encaminhamentos anexados à ficha"
-        acoes={
-          <Button variante="secundario" onClick={() => navegar(`/fichas/${id}`)}>
-            ← Voltar à ficha
-          </Button>
-        }
-      />
-
+    <>
       <Card>
         <div className="formulario-secao__grid">
           <Select id="documento_tipo" rotulo="Tipo" opcoes={[...TIPOS_DOCUMENTO_MEDICO]} valor={tipo} onChange={setTipo} />
@@ -118,6 +107,6 @@ export function FichaHistoricoMedico(): React.JSX.Element {
           </div>
         </Card>
       ))}
-    </ScreenContainer>
+    </>
   );
 }

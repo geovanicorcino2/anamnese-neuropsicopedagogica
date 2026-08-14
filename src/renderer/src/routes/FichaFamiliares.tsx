@@ -48,7 +48,7 @@ export function FichaFamiliares(): React.JSX.Element {
         titulo="Composição familiar"
         subtitulo="Outras crianças e parentes que moram com a criança"
         acoes={
-          <Button variante="secundario" onClick={() => navegar(`/fichas/${id}`)}>
+          <Button variante="secundario" onClick={() => navegar(`/pacientes/${id}/anamnese`)}>
             ← Voltar à ficha
           </Button>
         }

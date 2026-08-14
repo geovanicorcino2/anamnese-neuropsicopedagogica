@@ -3,28 +3,38 @@ import { writeFileSync } from "node:fs";
 import { CANAIS } from "@main/ipc/channels";
 import {
   agendamentosRepository,
+  anexosRepository,
   documentosRepository,
   familiaresRepository,
   fichasRepository,
   perfilRepository,
-  relatorioFinalRepository,
+  planejamentosRepository,
+  planosTerapeuticosRepository,
+  relatoriosAvaliativosRepository,
   respostasRepository,
-  sugestoesRepository,
 } from "@main/db";
 import type { NovaFicha, PatchFicha } from "@main/db/repositories/fichasRepository";
 import type { NovoFamiliar, PatchFamiliar } from "@main/db/repositories/familiaresRepository";
 import type { PatchPerfil } from "@main/db/repositories/perfilRepository";
-import type { EntradaSugestao } from "@main/db/repositories/sugestoesRepository";
-import type { EntradaRelatorioFinal } from "@main/db/repositories/relatorioFinalRepository";
 import type { NovoAgendamento } from "@main/db/repositories/agendamentosRepository";
+import type { NovoPlanejamento, PatchPlanejamento } from "@main/db/repositories/planejamentosRepository";
+import type { PatchPlanoTerapeutico } from "@main/db/repositories/planosTerapeuticosRepository";
+import type { PatchRelatorioAvaliativo } from "@main/db/repositories/relatoriosAvaliativosRepository";
+import type { CategoriaAnexoPaciente } from "@core/db/types";
 import { exportarFichaDocx, exportarFichaPdf } from "@main/export/exportarFicha";
 import { exportarIntervencaoDocx, exportarIntervencaoPdf } from "@main/export/exportarIntervencao";
-import { exportarRelatorioFinalDocx, exportarRelatorioFinalPdf } from "@main/export/exportarRelatorioFinal";
+import { exportarPlanoTerapeuticoDocx, exportarPlanoTerapeuticoPdf } from "@main/export/exportarPlanoTerapeutico";
+import {
+  exportarRelatorioAvaliativoDocx,
+  exportarRelatorioAvaliativoPdf,
+} from "@main/export/exportarRelatorioAvaliativo";
 import { escolherImagem } from "@main/perfil/uploadImagem";
 import { escolherDocumento } from "@main/documentos/uploadDocumento";
 import { abrirDocumento } from "@main/documentos/abrirDocumento";
+import { abrirAnexo } from "@main/anexos/abrirAnexo";
 import { gerarSugestoesParaFicha } from "@main/ia/gerarSugestoes";
-import { gerarRelatorioFinalParaFicha } from "@main/ia/gerarRelatorioFinal";
+import { gerarPlanoTerapeuticoParaFicha } from "@main/ia/gerarPlanoTerapeutico";
+import { gerarRelatorioAvaliativoParaFicha } from "@main/ia/gerarRelatorioAvaliativo";
 import * as backupService from "@main/backup/backupService";
 import { gerarGuiaBackupPdf } from "@main/backup/gerarGuiaBackupPdf";
 
@@ -112,24 +122,103 @@ export function registrarHandlersIpc(): void {
 
   ipcMain.handle(CANAIS.exportarDocx, (_evento, idFicha: string) => exportarFichaDocx(idFicha));
   ipcMain.handle(CANAIS.exportarPdf, (_evento, idFicha: string) => exportarFichaPdf(idFicha));
-  ipcMain.handle(CANAIS.exportarIntervencaoDocx, (_evento, idFicha: string) => exportarIntervencaoDocx(idFicha));
-  ipcMain.handle(CANAIS.exportarIntervencaoPdf, (_evento, idFicha: string) => exportarIntervencaoPdf(idFicha));
-  ipcMain.handle(CANAIS.exportarRelatorioFinalDocx, (_evento, idFicha: string) => exportarRelatorioFinalDocx(idFicha));
-  ipcMain.handle(CANAIS.exportarRelatorioFinalPdf, (_evento, idFicha: string) => exportarRelatorioFinalPdf(idFicha));
+  ipcMain.handle(CANAIS.exportarPlanejamentoDocx, (_evento, idPlanejamento: string) =>
+    exportarIntervencaoDocx(idPlanejamento),
+  );
+  ipcMain.handle(CANAIS.exportarPlanejamentoPdf, (_evento, idPlanejamento: string) =>
+    exportarIntervencaoPdf(idPlanejamento),
+  );
+  ipcMain.handle(CANAIS.exportarPlanoTerapeuticoDocx, (_evento, idPlano: string) =>
+    exportarPlanoTerapeuticoDocx(idPlano),
+  );
+  ipcMain.handle(CANAIS.exportarPlanoTerapeuticoPdf, (_evento, idPlano: string) =>
+    exportarPlanoTerapeuticoPdf(idPlano),
+  );
+  ipcMain.handle(CANAIS.exportarRelatorioAvaliativoDocx, (_evento, idRelatorio: string) =>
+    exportarRelatorioAvaliativoDocx(idRelatorio),
+  );
+  ipcMain.handle(CANAIS.exportarRelatorioAvaliativoPdf, (_evento, idRelatorio: string) =>
+    exportarRelatorioAvaliativoPdf(idRelatorio),
+  );
 
-  ipcMain.handle(CANAIS.iaSalvarEntrada, (_evento, idFicha: string, entrada: EntradaSugestao) =>
-    sugestoesRepository.salvarEntrada(idFicha, entrada),
+  ipcMain.handle(CANAIS.planejamentosList, (_evento, idFicha: string) =>
+    planejamentosRepository.listPlanejamentos(idFicha),
   );
-  ipcMain.handle(CANAIS.iaGerarSugestoes, (_evento, idFicha: string) => gerarSugestoesParaFicha(idFicha));
-  ipcMain.handle(CANAIS.iaObterSugestao, (_evento, idFicha: string) => sugestoesRepository.getSugestao(idFicha));
+  ipcMain.handle(CANAIS.planejamentosCriar, (_evento, dados: NovoPlanejamento) =>
+    planejamentosRepository.createPlanejamento(dados),
+  );
+  ipcMain.handle(
+    CANAIS.planejamentosAtualizar,
+    (_evento, id: string, idFicha: string, patch: PatchPlanejamento) =>
+      planejamentosRepository.updatePlanejamento(id, idFicha, patch),
+  );
+  ipcMain.handle(CANAIS.planejamentosGerar, (_evento, id: string) => gerarSugestoesParaFicha(id));
+  ipcMain.handle(CANAIS.planejamentosRemover, (_evento, id: string, idFicha: string) =>
+    planejamentosRepository.deletePlanejamento(id, idFicha),
+  );
 
-  ipcMain.handle(CANAIS.relatorioFinalSalvarEntrada, (_evento, idFicha: string, entrada: EntradaRelatorioFinal) =>
-    relatorioFinalRepository.salvarEntrada(idFicha, entrada),
+  ipcMain.handle(CANAIS.planosTerapeuticosList, (_evento, idFicha: string) =>
+    planosTerapeuticosRepository.listPlanosTerapeuticos(idFicha),
   );
-  ipcMain.handle(CANAIS.relatorioFinalGerar, (_evento, idFicha: string) => gerarRelatorioFinalParaFicha(idFicha));
-  ipcMain.handle(CANAIS.relatorioFinalObter, (_evento, idFicha: string) =>
-    relatorioFinalRepository.getRelatorioFinal(idFicha),
+  ipcMain.handle(CANAIS.planosTerapeuticosCriar, (_evento, idFicha: string, dataPlanejamento: string) =>
+    planosTerapeuticosRepository.createPlanoTerapeutico(idFicha, dataPlanejamento),
   );
+  ipcMain.handle(
+    CANAIS.planosTerapeuticosAtualizar,
+    (_evento, id: string, idFicha: string, patch: PatchPlanoTerapeutico) =>
+      planosTerapeuticosRepository.updatePlanoTerapeutico(id, idFicha, patch),
+  );
+  ipcMain.handle(CANAIS.planosTerapeuticosGerar, (_evento, id: string) => gerarPlanoTerapeuticoParaFicha(id));
+  ipcMain.handle(CANAIS.planosTerapeuticosRemover, (_evento, id: string, idFicha: string) =>
+    planosTerapeuticosRepository.deletePlanoTerapeutico(id, idFicha),
+  );
+
+  ipcMain.handle(CANAIS.relatoriosAvaliativosList, (_evento, idFicha: string) =>
+    relatoriosAvaliativosRepository.listRelatoriosAvaliativos(idFicha),
+  );
+  ipcMain.handle(
+    CANAIS.relatoriosAvaliativosCriar,
+    (_evento, idFicha: string, dataInicioAvaliacao: string | null) =>
+      relatoriosAvaliativosRepository.createRelatorioAvaliativo(idFicha, null, dataInicioAvaliacao),
+  );
+  ipcMain.handle(
+    CANAIS.relatoriosAvaliativosAtualizar,
+    (_evento, id: string, idFicha: string, patch: PatchRelatorioAvaliativo) =>
+      relatoriosAvaliativosRepository.updateRelatorioAvaliativo(id, idFicha, patch),
+  );
+  ipcMain.handle(CANAIS.relatoriosAvaliativosGerar, (_evento, id: string) => gerarRelatorioAvaliativoParaFicha(id));
+  ipcMain.handle(CANAIS.relatoriosAvaliativosRemover, (_evento, id: string, idFicha: string) =>
+    relatoriosAvaliativosRepository.deleteRelatorioAvaliativo(id, idFicha),
+  );
+
+  ipcMain.handle(
+    CANAIS.anexosList,
+    (_evento, idFicha: string, categoria: CategoriaAnexoPaciente) => anexosRepository.listAnexos(idFicha, categoria),
+  );
+  ipcMain.handle(
+    CANAIS.anexosUpload,
+    async (_evento, idFicha: string, categoria: CategoriaAnexoPaciente, nomePersonalizado: string | null) => {
+      const arquivo = await escolherDocumento("Selecionar arquivo");
+      if (!arquivo) return { cancelado: true };
+      const anexo = anexosRepository.createAnexo({
+        idFicha,
+        categoria,
+        nomePersonalizado,
+        nomeArquivo: arquivo.nomeArquivo,
+        mime: arquivo.mime,
+        base64: arquivo.base64,
+      });
+      return { cancelado: false, anexo };
+    },
+  );
+  ipcMain.handle(CANAIS.anexosRemover, (_evento, id: string, idFicha: string) =>
+    anexosRepository.deleteAnexo(id, idFicha),
+  );
+  ipcMain.handle(CANAIS.anexosAbrir, (_evento, id: string) => {
+    const anexo = anexosRepository.getAnexo(id);
+    if (!anexo) throw new Error("Anexo não encontrado.");
+    return abrirAnexo(anexo);
+  });
 
   ipcMain.handle(CANAIS.agendamentosListarIntervalo, (_evento, dataInicio: string, dataFim: string) =>
     agendamentosRepository.listPorIntervalo(dataInicio, dataFim),

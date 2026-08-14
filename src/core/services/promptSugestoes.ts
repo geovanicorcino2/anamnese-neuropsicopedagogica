@@ -4,9 +4,11 @@ import { resumirSecoesAnamnese } from "@core/services/anamneseContent";
 export interface EntradaParaPrompt {
   tempoSessao: string | null;
   atividades: string;
-  observacoes: string | null;
 }
 
+// Gera Objetivo + Materiais de UMA sessão de Planejamento de Intervenção (histórico — uma linha
+// por atendimento, ver planejamentosRepository.ts). Nome do arquivo mantido por continuidade com
+// o resto do builder/exportação, mesmo o conceito de "Sugestões" ter virado "Planejamento".
 export function montarPromptSugestoes(conteudo: ConteudoFicha, entrada: EntradaParaPrompt): string {
   const secoesTexto = resumirSecoesAnamnese(conteudo.secoes);
 
@@ -37,7 +39,6 @@ ${secoesTexto}
 ## Sessão de intervenção planejada
 - Tempo de sessão: ${entrada.tempoSessao ?? "não informado"}
 - Atividades: ${entrada.atividades}
-- Observações: ${entrada.observacoes ?? "nenhuma"}
 `;
 }
 

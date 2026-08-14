@@ -26,12 +26,12 @@ export function Inicio(): React.JSX.Element {
       <SectionHeader
         titulo="Início"
         subtitulo="Ana Paula M. Gontijo — Neuropsicopedagoga"
-        acoes={<Button onClick={() => navegar("/fichas/nova")}>+ Nova ficha</Button>}
+        acoes={<Button onClick={() => navegar("/pacientes/novo")}>+ Novo paciente</Button>}
       />
 
       <div className="formulario-secao__grid">
         <Card>
-          <div style={{ fontSize: 13, color: "var(--cor-texto-suave)" }}>Total de fichas</div>
+          <div style={{ fontSize: 13, color: "var(--cor-texto-suave)" }}>Total de pacientes</div>
           <div style={{ fontSize: 28, fontWeight: 700 }}>{total}</div>
         </Card>
         <Card>
@@ -44,13 +44,13 @@ export function Inicio(): React.JSX.Element {
         </Card>
       </div>
 
-      <SectionHeader titulo="Fichas recentes" />
-      {recentes.length === 0 && <Card>Nenhuma ficha ainda.</Card>}
+      <SectionHeader titulo="Pacientes recentes" />
+      {recentes.length === 0 && <Card>Nenhum paciente ainda.</Card>}
       {recentes.map((ficha) => (
         <Card key={ficha.ID_Ficha}>
           <div
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
-            onClick={() => navegar(`/fichas/${ficha.ID_Ficha}`)}
+            onClick={() => navegar(`/pacientes/${ficha.ID_Ficha}`)}
           >
             <div>
               <div style={{ fontWeight: 700 }}>{ficha.Nome_Crianca}</div>

@@ -7,6 +7,7 @@ import {
   MIGRACOES_V3,
   MIGRACOES_V4,
   MIGRACOES_V5,
+  MIGRACOES_V6,
   SCHEMA_SQL,
   SCHEMA_VERSAO_ATUAL,
 } from "@core/db/schemaSql";
@@ -104,6 +105,16 @@ function rodarMigracoes(bancoAberto: Database): void {
         bancoAberto.run(statement);
       } catch {
         // coluna já existe — segue o jogo.
+      }
+    }
+  }
+
+  if (versaoAtual < 6) {
+    for (const statement of MIGRACOES_V6) {
+      try {
+        bancoAberto.run(statement);
+      } catch {
+        // coluna/tabela já existe — segue o jogo.
       }
     }
   }

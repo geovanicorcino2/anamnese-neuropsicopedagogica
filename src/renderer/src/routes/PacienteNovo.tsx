@@ -6,7 +6,7 @@ import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { FormField } from "../components/FormField";
 
-export function FichaNova(): React.JSX.Element {
+export function PacienteNovo(): React.JSX.Element {
   const [nome, setNome] = useState("");
   const [dataNascimento, setDataNascimento] = useState("");
   const [escola, setEscola] = useState("");
@@ -23,12 +23,12 @@ export function FichaNova(): React.JSX.Element {
       escola: escola || null,
       dataInicioAcompanhamento: dataInicioAcompanhamento || null,
     });
-    navegar(`/fichas/${ficha.ID_Ficha}`);
+    navegar(`/pacientes/${ficha.ID_Ficha}`);
   }
 
   return (
     <ScreenContainer>
-      <SectionHeader titulo="Nova ficha" subtitulo="Identificação mínima para começar" />
+      <SectionHeader titulo="Novo paciente" subtitulo="Identificação mínima para começar" />
       <Card>
         <FormField id="nome" rotulo="Nome da criança" tipo="texto" valor={nome} onChange={setNome} obrigatorio />
         <FormField
@@ -48,9 +48,9 @@ export function FichaNova(): React.JSX.Element {
         />
         <div style={{ display: "flex", gap: 8 }}>
           <Button onClick={criar} disabled={!nome.trim() || salvando}>
-            Criar ficha
+            Criar paciente
           </Button>
-          <Button variante="fantasma" onClick={() => navegar("/fichas")}>
+          <Button variante="fantasma" onClick={() => navegar("/pacientes")}>
             Cancelar
           </Button>
         </div>

@@ -3,11 +3,9 @@ import { AvisoBackup } from "./AvisoBackup";
 
 const ITENS_NAV = [
   { rota: "/", rotulo: "Início", fim: true },
-  { rota: "/fichas", rotulo: "Fichas", fim: false },
+  { rota: "/pacientes", rotulo: "Pacientes", fim: false },
   { rota: "/perfil", rotulo: "Perfil", fim: true },
   { rota: "/backup", rotulo: "Backup", fim: true },
-  { rota: "/sugestoes", rotulo: "Sugestões de Intervenção", fim: true },
-  { rota: "/relatorio-final", rotulo: "Relatório Final", fim: true },
   { rota: "/agenda", rotulo: "Agenda", fim: true },
 ] as const;
 

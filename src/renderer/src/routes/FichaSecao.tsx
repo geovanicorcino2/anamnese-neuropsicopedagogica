@@ -39,7 +39,7 @@ export function FichaSecao(): React.JSX.Element {
         titulo={secao.titulo}
         subtitulo="As respostas são salvas automaticamente"
         acoes={
-          <Button variante="secundario" onClick={() => navegar(`/fichas/${id}`)}>
+          <Button variante="secundario" onClick={() => navegar(`/pacientes/${id}/anamnese`)}>
             ← Voltar à ficha
           </Button>
         }

@@ -1,13 +1,5 @@
 import JSZip from "jszip";
-import type { ConteudoPlanejamento } from "@core/services/intervencaoContent";
-import { formatarLinhaOpcoes } from "@core/services/intervencaoContent";
-import {
-  AVALIACAO_ATENCAO_OPCOES,
-  AVALIACAO_INTERACAO_OPCOES,
-  AVALIACAO_MOTIVACAO_OPCOES,
-  OBJETIVO_SESSAO_OPCOES,
-  TEMPOS_SESSAO,
-} from "@core/data/planejamentoIntervencao";
+import type { ConteudoPlanoTerapeutico } from "@core/services/planoTerapeuticoContent";
 import type { IdentidadeVisualConfig } from "@core/services/identidadeVisualConfig";
 import {
   BORDA_ROXA,
@@ -38,7 +30,7 @@ const NAMESPACES_WORDML =
 
 const ALTURA_LOGO_EMU = 900000;
 
-// ABNT: margens esquerda/superior 3cm, direita/inferior 2cm (1cm = 360000 EMU = 566,93 twips).
+// ABNT: margens esquerda/superior 3cm, direita/inferior 2cm — igual a docxIntervencaoBuilder.ts.
 const MARGEM_ESQUERDA_EMU = 1080000;
 const MARGEM_DIREITA_EMU = 720000;
 const MARGEM_SUPERIOR_TWIPS = 1701;
@@ -71,62 +63,78 @@ function paragrafoItem(rotulo: string, valor: string): string {
   return `<w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">${escaparXml(rotulo)}: </w:t></w:r><w:r><w:t xml:space="preserve">${escaparXml(valor)}</w:t></w:r></w:p>`;
 }
 
-// "Rótulo:    ( ) A    (X) B    ( ) C" — mesmo texto literal de checkbox do modelo real (ver
-// formatarLinhaOpcoes em intervencaoContent.ts), com o rótulo em negrito.
-function paragrafoOpcoes(rotulo: string, opcoes: readonly string[], selecionado: string | null): string {
-  const linha = formatarLinhaOpcoes(opcoes, selecionado);
-  return `<w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">${escaparXml(rotulo)}:    </w:t></w:r><w:r><w:t xml:space="preserve">${escaparXml(linha)}</w:t></w:r></w:p>`;
-}
-
 function tituloSecao(texto: string): string {
   return `<w:p><w:pPr><w:spacing w:before="240"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">${escaparXml(texto)}</w:t></w:r></w:p>`;
 }
 
-// Layout exato do modelo real por sessão (PLANEJAMENTO INTERVENCAO_ALICE_SOPHIA) — ver
-// intervencao_avaliacao_pos_sessao_pendente / estado_atual_handoff (memória do projeto) pro
-// porquê da fusão com o antigo Relatório Final.
-function montarCorpoDocumento(conteudo: ConteudoPlanejamento): string {
+// Layout exato do modelo real (PLANO TERAPÊUTICO HEITOR MIGUEL) — 10 seções na ordem extraída via
+// Word COM (estilo + negrito por parágrafo).
+function montarCorpoDocumento(conteudo: ConteudoPlanoTerapeutico): string {
   const partes: string[] = [];
 
-  partes.push(paragrafo("Planejamento de Intervenção", { negrito: true, tamanho: 32, centralizado: true }));
+  partes.push(paragrafo("PLANO TERAPÊUTICO PSICOPEDAGÓGICO", { negrito: true, tamanho: 32, centralizado: true }));
+  partes.push(paragrafo("Válido por 6 meses.", { centralizado: true }));
   partes.push(paragrafo(" "));
 
-  partes.push(paragrafoItem("Nome completo", conteudo.nomeCrianca));
+  partes.push(paragrafoItem("Nome", conteudo.nomeCrianca));
   partes.push(paragrafoItem("Idade", conteudo.idade));
-  partes.push(paragrafoItem("Data", conteudo.dataSessao));
-  partes.push(paragrafoItem("Série", conteudo.serie));
-  partes.push(paragrafoItem("Neuropsicopedagoga responsável", `${conteudo.nomeProfissional} — ${conteudo.tituloProfissional}`));
+  partes.push(paragrafoItem("Nome dos responsáveis", conteudo.nomeResponsaveis));
+  partes.push(paragrafoItem("Data de nascimento", conteudo.dataNascimento));
+  partes.push(paragrafoItem("Ano", conteudo.anoNascimento));
+  partes.push(paragrafoItem("Atendimento", "Neuropsicopedagógico Clínico."));
+  partes.push(paragrafoItem("Data do Planejamento", conteudo.dataPlanejamento));
+  partes.push(
+    paragrafoItem(
+      "Profissionais envolvidos",
+      conteudo.registroProfissional
+        ? `${conteudo.nomeProfissional} — ${conteudo.tituloProfissional} (${conteudo.registroProfissional})`
+        : `${conteudo.nomeProfissional} — ${conteudo.tituloProfissional}`,
+    ),
+  );
 
-  partes.push(paragrafoOpcoes("Tempo de sessão", TEMPOS_SESSAO, conteudo.tempoSessaoSelecionado));
+  partes.push(tituloSecao("Diagnóstico:"));
+  partes.push(paragrafoTextoIa(conteudo.diagnostico));
 
-  partes.push(tituloSecao("Objetivo da intervenção desta sessão (para preenchimento sessão a sessão)."));
-  partes.push(paragrafoTextoIa(conteudo.objetivo));
+  partes.push(tituloSecao("Anamnese:"));
+  partes.push(paragrafoTextoIa(conteudo.anamneseResumo));
 
-  partes.push(tituloSecao("Atividades aplicadas."));
-  partes.push(paragrafo(conteudo.atividades));
+  partes.push(tituloSecao("Protocolos de avaliação utilizados:"));
+  partes.push(paragrafoTextoIa(conteudo.protocolosAvaliacao));
 
-  partes.push(tituloSecao("Materiais utilizados."));
-  partes.push(paragrafoTextoIa(conteudo.materiais));
+  partes.push(tituloSecao("Capacidades, interesses:"));
+  partes.push(paragrafoTextoIa(conteudo.capacidadesInteresses));
 
-  partes.push(tituloSecao("Avaliação."));
-  partes.push(paragrafoOpcoes("Atenção", AVALIACAO_ATENCAO_OPCOES, conteudo.avaliacaoAtencaoSelecionada));
-  partes.push(paragrafoOpcoes("Motivação", AVALIACAO_MOTIVACAO_OPCOES, conteudo.avaliacaoMotivacaoSelecionada));
-  partes.push(paragrafoOpcoes("Interação", AVALIACAO_INTERACAO_OPCOES, conteudo.avaliacaoInteracaoSelecionada));
+  partes.push(tituloSecao("Necessidades:"));
+  partes.push(paragrafoTextoIa(conteudo.necessidades));
 
-  partes.push(tituloSecao("Observações:"));
-  partes.push(paragrafo(conteudo.observacoes));
+  partes.push(tituloSecao("Metas e prazos:"));
+  partes.push(paragrafoTextoIa(conteudo.metasPrazos));
 
-  partes.push(paragrafoOpcoes("Objetivo da sessão", OBJETIVO_SESSAO_OPCOES, conteudo.objetivoSessaoSelecionado));
+  partes.push(tituloSecao("Recursos/ estratégias:"));
+  partes.push(paragrafoTextoIa(conteudo.recursosEstrategias));
+
+  partes.push(tituloSecao("Treinamento parental:"));
+  partes.push(paragrafoTextoIa(conteudo.treinamentoParental));
+
+  partes.push(tituloSecao("Profissionais que a acompanham:"));
+  partes.push(paragrafoTextoIa(conteudo.profissionaisAcompanham));
+
+  partes.push(tituloSecao("Quando e como são realizados os atendimentos:"));
+  partes.push(paragrafoTextoIa(conteudo.frequenciaAtendimentos));
 
   partes.push(paragrafo(" "));
   partes.push(paragrafo(" "));
-  partes.push(paragrafo("___________________________________", { centralizado: true }));
-  partes.push(paragrafo(`Assinatura ${conteudo.tituloProfissional}`, { centralizado: true }));
+  partes.push(paragrafo("__________________________________", { centralizado: true }));
+  partes.push(paragrafo(conteudo.nomeProfissional, { centralizado: true }));
+  partes.push(paragrafo(conteudo.tituloProfissional, { centralizado: true }));
+  if (conteudo.registroProfissional) {
+    partes.push(paragrafo(conteudo.registroProfissional, { centralizado: true }));
+  }
 
   return partes.join("");
 }
 
-function montarDocumentXml(conteudo: ConteudoPlanejamento): string {
+function montarDocumentXml(conteudo: ConteudoPlanoTerapeutico): string {
   const corpo = montarCorpoDocumento(conteudo);
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document ${NAMESPACES_WORDML}><w:body>${corpo}
@@ -151,12 +159,12 @@ interface ImagemLogoHeader {
   nome: string;
 }
 
-// Logo customizada do Perfil (se configurada) OU, por padrão, as 2 logos originais do modelo
-// (Humana Clínica + Ana Paula), cada uma numa ponta do conteúdo — mesmo layout do documento
-// original da anamnese (docxAnamneseBuilder.ts: Humana à direita, Ana Paula à esquerda), só
-// recalculado pras margens ABNT deste documento. Antes as 2 ficavam centralizadas como par, o
-// que colocava as imagens EM CIMA do texto "NEUROPSICOPEDAGOGA ESPECIALISTA EM ABA" (também
-// centralizado) — nas pontas, o texto centralizado fica livre no meio, sem sobreposição.
+// Logo customizada do Perfil (se configurada) OU, por padrão, as 2 logos originais do modelo,
+// cada uma numa ponta do conteúdo — mesmo layout do documento original da anamnese
+// (docxAnamneseBuilder.ts: Humana à direita, Ana Paula à esquerda). Antes as 2 ficavam
+// centralizadas como par, o que colocava as imagens EM CIMA do texto "NEUROPSICOPEDAGOGA
+// ESPECIALISTA EM ABA" (também centralizado) — nas pontas, o texto centralizado fica livre no
+// meio, sem sobreposição.
 function resolverImagensLogo(identidade: IdentidadeVisualConfig): ImagemLogoHeader[] {
   const larguraConteudoEmu = PAGINA_LARGURA_EMU - MARGEM_ESQUERDA_EMU - MARGEM_DIREITA_EMU;
 
@@ -207,9 +215,6 @@ function resolverImagensLogo(identidade: IdentidadeVisualConfig): ImagemLogoHead
   ];
 }
 
-// Posição relativeFrom="paragraph" — todas as logos precisam estar no MESMO <w:p>, senão cada
-// parágrafo novo desloca o "topo" de referência da próxima âncora (mesmo motivo documentado em
-// docxAnamneseBuilder.ts).
 function xmlLogosCabecalho(imagens: ImagemLogoHeader[]): string {
   const runs = imagens
     .map((imagem) =>
@@ -280,7 +285,7 @@ function xmlBordaRodape(identidade: IdentidadeVisualConfig): string {
 }
 
 function montarHeaderXml(
-  conteudo: ConteudoPlanejamento,
+  conteudo: ConteudoPlanoTerapeutico,
   identidade: IdentidadeVisualConfig,
   imagensLogo: ImagemLogoHeader[],
 ): string {
@@ -298,8 +303,6 @@ ${xmlBordaCabecalho(identidade, rIdBorda)}
 </w:hdr>`;
 }
 
-// Numeração de página só existe no DOCX (campo PAGE nativo) — o printToPDF do Chromium não
-// suporta caixas de margem paginada de forma confiável, então o PDF fica sem numeração.
 function xmlCampoPagina(): string {
   return `<w:p><w:pPr><w:jc w:val="center"/></w:pPr>
 <w:r><w:fldChar w:fldCharType="begin"/></w:r>
@@ -318,8 +321,6 @@ ${xmlCampoPagina()}
 </w:ftr>`;
 }
 
-// ABNT: Times New Roman 12pt (w:sz em meios-pontos, 24 = 12pt), espaçamento 1,5 (w:line="360"
-// com lineRule "auto" representa 360/240 = 1,5 linha) e parágrafo justificado por padrão.
 function montarStylesXml(): string {
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
@@ -365,8 +366,8 @@ function relacionamento(id: string, arquivo: string): string {
   return `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${arquivo}"/>`;
 }
 
-export async function gerarDocxIntervencao(
-  conteudo: ConteudoPlanejamento,
+export async function gerarDocxPlanoTerapeutico(
+  conteudo: ConteudoPlanoTerapeutico,
   identidade: IdentidadeVisualConfig,
 ): Promise<Uint8Array> {
   const zip = new JSZip();

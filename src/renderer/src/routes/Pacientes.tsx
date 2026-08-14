@@ -27,7 +27,10 @@ function ordenarFichas(fichas: Ficha[], ordenacao: Ordenacao): Ficha[] {
   return ordenadas;
 }
 
-export function Fichas(): React.JSX.Element {
+// Lista de pacientes — tecnicamente ainda a tabela Fichas (cada linha é a anamnese + identidade
+// do paciente), só renomeada na UI. Ver PacienteDetalhe.tsx pro hub com abas (anamnese, plano
+// terapêutico, relatório avaliativo, planejamento de intervenção) de cada paciente.
+export function Pacientes(): React.JSX.Element {
   const [fichas, setFichas] = useState<Ficha[] | null>(null);
   const [busca, setBusca] = useState("");
   const [ordenacao, setOrdenacao] = useState<Ordenacao>("Última atualização");
@@ -47,13 +50,9 @@ export function Fichas(): React.JSX.Element {
   return (
     <ScreenContainer>
       <SectionHeader
-        titulo="Fichas"
-        subtitulo="Anamneses cadastradas"
-        acoes={
-          <Button onClick={() => navegar("/fichas/nova")}>
-            + Nova ficha
-          </Button>
-        }
+        titulo="Pacientes"
+        subtitulo="Toda a vida de cada paciente: anamnese, plano terapêutico, relatórios e planejamentos"
+        acoes={<Button onClick={() => navegar("/pacientes/novo")}>+ Novo paciente</Button>}
       />
 
       {fichas === null && <p>Carregando…</p>}
@@ -61,11 +60,9 @@ export function Fichas(): React.JSX.Element {
       {fichas !== null && fichas.length === 0 && (
         <Card>
           <EmptyState
-            titulo="Nenhuma ficha cadastrada"
-            descricao="Crie a primeira ficha de anamnese para começar."
-            acao={
-              <Button onClick={() => navegar("/fichas/nova")}>+ Nova ficha</Button>
-            }
+            titulo="Nenhum paciente cadastrado"
+            descricao="Crie o primeiro paciente para começar."
+            acao={<Button onClick={() => navegar("/pacientes/novo")}>+ Novo paciente</Button>}
           />
         </Card>
       )}
@@ -73,9 +70,9 @@ export function Fichas(): React.JSX.Element {
       {fichas !== null && fichas.length > 0 && (
         <Card>
           <div className="formulario-secao__grid">
-            <FormField id="fichas_busca" rotulo="Buscar por nome" tipo="texto" valor={busca} onChange={setBusca} />
+            <FormField id="pacientes_busca" rotulo="Buscar por nome" tipo="texto" valor={busca} onChange={setBusca} />
             <Select
-              id="fichas_ordenacao"
+              id="pacientes_ordenacao"
               rotulo="Ordenar por"
               opcoes={[...OPCOES_ORDENACAO]}
               valor={ordenacao}
@@ -87,7 +84,7 @@ export function Fichas(): React.JSX.Element {
 
       {fichasExibidas !== null && fichasExibidas.length === 0 && fichas !== null && fichas.length > 0 && (
         <Card>
-          <EmptyState titulo="Nenhuma ficha encontrada" descricao="Tente buscar por outro nome." />
+          <EmptyState titulo="Nenhum paciente encontrado" descricao="Tente buscar por outro nome." />
         </Card>
       )}
 
@@ -96,7 +93,7 @@ export function Fichas(): React.JSX.Element {
           <Card key={ficha.ID_Ficha}>
             <div
               style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
-              onClick={() => navegar(`/fichas/${ficha.ID_Ficha}`)}
+              onClick={() => navegar(`/pacientes/${ficha.ID_Ficha}`)}
             >
               <div>
                 <div style={{ fontWeight: 700 }}>{ficha.Nome_Crianca}</div>

@@ -54,8 +54,19 @@ function formatarValor(tipo: string, valorBruto: string | undefined): string {
   return valorBruto;
 }
 
+// "Fulana e Beltrano" / "Fulana, Beltrano e Ciclana" — usado no cabeçalho do Plano Terapêutico e
+// do Relatório Avaliativo ("Nome dos responsáveis"), que não tem campo próprio na anamnese; a
+// aproximação é juntar os nomes cadastrados em Familiares daquela ficha.
+export function juntarNomesResponsaveis(familiares: Familiar[]): string {
+  const nomes = familiares.map((f) => f.Nome).filter(Boolean);
+  if (nomes.length === 0) return VAZIO;
+  if (nomes.length === 1) return nomes[0];
+  return `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+}
+
 // Resume as seções preenchidas da anamnese em texto simples (bullets por campo, "—" omitido),
-// pra uso em prompts de IA — compartilhado entre Sugestão de Intervenção e Relatório Final.
+// pra uso em prompts de IA — compartilhado entre os documentos gerados por IA (Planejamento de
+// Intervenção, Plano Terapêutico, Relatório Avaliativo).
 export function resumirSecoesAnamnese(secoes: SecaoConteudo[]): string {
   return secoes
     .map((secao) => {

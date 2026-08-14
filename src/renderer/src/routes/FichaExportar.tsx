@@ -35,7 +35,7 @@ export function FichaExportar(): React.JSX.Element {
         titulo="Exportar ficha"
         subtitulo="Gera o documento com o timbre da clínica, igual ao formulário original"
         acoes={
-          <Button variante="secundario" onClick={() => navegar(`/fichas/${id}`)}>
+          <Button variante="secundario" onClick={() => navegar(`/pacientes/${id}/anamnese`)}>
             ← Voltar à ficha
           </Button>
         }

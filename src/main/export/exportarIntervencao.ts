@@ -1,8 +1,8 @@
 import { dialog } from "electron";
 import { writeFileSync } from "node:fs";
-import { montarConteudoIntervencao, type ConteudoIntervencao } from "@core/services/intervencaoContent";
+import { montarConteudoPlanejamento, type ConteudoPlanejamento } from "@core/services/intervencaoContent";
 import type { IdentidadeVisualConfig } from "@core/services/identidadeVisualConfig";
-import { fichasRepository, perfilRepository, sugestoesRepository } from "@main/db";
+import { fichasRepository, perfilRepository, planejamentosRepository } from "@main/db";
 import { gerarDocxIntervencao } from "@main/export/docxIntervencaoBuilder";
 import { gerarPdfIntervencao } from "@main/export/pdfIntervencaoTemplate";
 
@@ -11,22 +11,26 @@ export interface ResultadoExportacao {
   caminho?: string;
 }
 
-function nomeArquivoSugerido(nomeCrianca: string, extensao: string): string {
-  const nomeSeguro = nomeCrianca.replace(/[\\/:*?"<>|]/g, "").trim() || "ficha";
-  return `Planejamento de Intervenção - ${nomeSeguro}.${extensao}`;
+// dataSessao chega já formatada "DD/MM/AAAA" (formatarDataBR) — a barra quebra o diálogo de
+// salvar do Windows (interpretada como separador de pasta, truncando o nome sugerido pra só
+// "AAAA.ext"). Sanitizar os dois pedaços com o mesmo regex de caracteres proibidos.
+function nomeArquivoSugerido(nomeCrianca: string, dataSessao: string, extensao: string): string {
+  const nomeSeguro = nomeCrianca.replace(/[\\/:*?"<>|]/g, "").trim() || "paciente";
+  const dataSegura = dataSessao.replace(/[\\/:*?"<>|]/g, "-");
+  return `Planejamento de Intervenção - ${nomeSeguro} - ${dataSegura}.${extensao}`;
 }
 
-function montarConteudoDaIntervencao(idFicha: string): ConteudoIntervencao {
-  const ficha = fichasRepository.getFicha(idFicha);
-  if (!ficha) throw new Error(`Ficha "${idFicha}" não encontrada.`);
+function montarConteudoDoPlanejamento(idPlanejamento: string): ConteudoPlanejamento {
+  const planejamento = planejamentosRepository.getPlanejamento(idPlanejamento);
+  if (!planejamento) throw new Error(`Planejamento "${idPlanejamento}" não encontrado.`);
+
+  const ficha = fichasRepository.getFicha(planejamento.ID_Ficha);
+  if (!ficha) throw new Error(`Ficha "${planejamento.ID_Ficha}" não encontrada.`);
 
   const perfil = perfilRepository.getPerfil();
   if (!perfil) throw new Error("Perfil profissional ainda não foi configurado.");
 
-  const sugestao = sugestoesRepository.getSugestao(idFicha);
-  if (!sugestao?.Objetivo_Gerado) throw new Error("Gere a sugestão de intervenção antes de exportar.");
-
-  return montarConteudoIntervencao({ ficha, perfil, sugestao });
+  return montarConteudoPlanejamento({ ficha, perfil, planejamento });
 }
 
 function obterIdentidadeVisual(): IdentidadeVisualConfig {
@@ -39,11 +43,11 @@ function obterIdentidadeVisual(): IdentidadeVisualConfig {
   };
 }
 
-export async function exportarIntervencaoDocx(idFicha: string): Promise<ResultadoExportacao> {
-  const conteudo = montarConteudoDaIntervencao(idFicha);
+export async function exportarIntervencaoDocx(idPlanejamento: string): Promise<ResultadoExportacao> {
+  const conteudo = montarConteudoDoPlanejamento(idPlanejamento);
   const { canceled, filePath } = await dialog.showSaveDialog({
     title: "Salvar planejamento de intervenção (Word)",
-    defaultPath: nomeArquivoSugerido(conteudo.nomeCrianca, "docx"),
+    defaultPath: nomeArquivoSugerido(conteudo.nomeCrianca, conteudo.dataSessao, "docx"),
     filters: [{ name: "Documento Word", extensions: ["docx"] }],
   });
   if (canceled || !filePath) return { cancelado: true };
@@ -53,11 +57,11 @@ export async function exportarIntervencaoDocx(idFicha: string): Promise<Resultad
   return { cancelado: false, caminho: filePath };
 }
 
-export async function exportarIntervencaoPdf(idFicha: string): Promise<ResultadoExportacao> {
-  const conteudo = montarConteudoDaIntervencao(idFicha);
+export async function exportarIntervencaoPdf(idPlanejamento: string): Promise<ResultadoExportacao> {
+  const conteudo = montarConteudoDoPlanejamento(idPlanejamento);
   const { canceled, filePath } = await dialog.showSaveDialog({
     title: "Salvar planejamento de intervenção (PDF)",
-    defaultPath: nomeArquivoSugerido(conteudo.nomeCrianca, "pdf"),
+    defaultPath: nomeArquivoSugerido(conteudo.nomeCrianca, conteudo.dataSessao, "pdf"),
     filters: [{ name: "Documento PDF", extensions: ["pdf"] }],
   });
   if (canceled || !filePath) return { cancelado: true };

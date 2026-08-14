@@ -2,15 +2,7 @@ import { BrowserWindow, app } from "electron";
 import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { ConteudoPlanejamento } from "@core/services/intervencaoContent";
-import { formatarLinhaOpcoes } from "@core/services/intervencaoContent";
-import {
-  AVALIACAO_ATENCAO_OPCOES,
-  AVALIACAO_INTERACAO_OPCOES,
-  AVALIACAO_MOTIVACAO_OPCOES,
-  OBJETIVO_SESSAO_OPCOES,
-  TEMPOS_SESSAO,
-} from "@core/data/planejamentoIntervencao";
+import type { ConteudoPlanoTerapeutico } from "@core/services/planoTerapeuticoContent";
 import type { IdentidadeVisualConfig } from "@core/services/identidadeVisualConfig";
 import { formatarTextoIa } from "@core/services/textoIaFormatado";
 import {
@@ -27,7 +19,6 @@ import {
 } from "@main/assets/identidadeVisual";
 import { lerDimensoesImagem } from "@main/export/dimensoesImagem";
 
-// ABNT: margens esquerda/superior 3cm, direita/inferior 2cm (1cm = 360000 EMU).
 const MARGEM_ESQUERDA_EMU = 1080000;
 const MARGEM_DIREITA_EMU = 720000;
 const PAGINA_LARGURA_EMU = 7560310;
@@ -41,10 +32,6 @@ function escaparHtml(texto: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-function comQuebrasDeLinha(texto: string): string {
-  return escaparHtml(texto).split("\n").join("<br/>");
 }
 
 function svgFormaDecorativa(forma: FormaDecorativa, instancia: "cabecalho" | "rodape"): string {
@@ -98,13 +85,7 @@ function htmlBorda(identidade: IdentidadeVisualConfig): string {
   ].join("\n");
 }
 
-function imgLogo(
-  base64: string,
-  mime: string,
-  leftEmu: number,
-  larguraEmu: number,
-  alt: string,
-): string {
+function imgLogo(base64: string, mime: string, leftEmu: number, larguraEmu: number, alt: string): string {
   const estilo = [
     `left:${emuParaPolegadas(leftEmu)}in`,
     `top:${emuParaPolegadas(DISTANCIA_CABECALHO_EMU + 40000)}in`,
@@ -114,11 +95,6 @@ function imgLogo(
   return `<img class="logo" style="${estilo}" src="data:${mime};base64,${base64}" alt="${escaparHtml(alt)}"/>`;
 }
 
-// Logo customizada do Perfil (se configurada) OU, por padrão, as 2 logos originais do modelo,
-// cada uma numa ponta do conteúdo — mesmo layout do documento original da anamnese
-// (Humana à direita, Ana Paula à esquerda). Antes as 2 ficavam centralizadas como par, o que
-// colocava as imagens em cima do texto "NEUROPSICOPEDAGOGA ESPECIALISTA EM ABA" (também
-// centralizado) — nas pontas, o texto centralizado fica livre no meio, sem sobreposição.
 function htmlLogo(identidade: IdentidadeVisualConfig): string {
   const larguraConteudoEmu = PAGINA_LARGURA_EMU - MARGEM_ESQUERDA_EMU - MARGEM_DIREITA_EMU;
 
@@ -147,15 +123,9 @@ function htmlLogo(identidade: IdentidadeVisualConfig): string {
 }
 
 function itemHtml(rotulo: string, valor: string): string {
-  return `<p class="item"><b>${escaparHtml(rotulo)}:</b> ${comQuebrasDeLinha(valor)}</p>`;
+  return `<p class="item"><b>${escaparHtml(rotulo)}:</b> ${escaparHtml(valor)}</p>`;
 }
 
-function opcoesHtml(rotulo: string, opcoes: readonly string[], selecionado: string | null): string {
-  return `<p class="item"><b>${escaparHtml(rotulo)}:</b>    ${escaparHtml(formatarLinhaOpcoes(opcoes, selecionado))}</p>`;
-}
-
-// Renderiza texto gerado por IA interpretando a formatação markdown leve que ela às vezes usa
-// (ver textoIaFormatado.ts) em vez de mostrar "**"/"#"/"---" literalmente.
 function htmlTextoIa(textoBruto: string): string {
   const linhas = formatarTextoIa(textoBruto);
   return linhas
@@ -168,7 +138,14 @@ function htmlTextoIa(textoBruto: string): string {
     .join("\n");
 }
 
-export function montarHtmlIntervencao(conteudo: ConteudoPlanejamento, identidade: IdentidadeVisualConfig): string {
+export function montarHtmlPlanoTerapeutico(
+  conteudo: ConteudoPlanoTerapeutico,
+  identidade: IdentidadeVisualConfig,
+): string {
+  const profissional = conteudo.registroProfissional
+    ? `${conteudo.nomeProfissional} — ${conteudo.tituloProfissional} (${conteudo.registroProfissional})`
+    : `${conteudo.nomeProfissional} — ${conteudo.tituloProfissional}`;
+
   return `<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -180,7 +157,8 @@ export function montarHtmlIntervencao(conteudo: ConteudoPlanejamento, identidade
   body { font-family: "Times New Roman", Times, serif; font-size: 12pt; line-height: 1.5; color: #000; }
   .forma-decorativa, .logo { position: fixed; z-index: 0; }
   .conteudo { position: relative; z-index: 1; padding: 3cm 2cm 2cm 3cm; text-align: justify; }
-  h1.titulo { text-align: center; font-size: 16pt; margin: 0 0 18pt; }
+  h1.titulo { text-align: center; font-size: 16pt; margin: 0 0 4pt; }
+  p.subtitulo { text-align: center; margin: 0 0 18pt; }
   h3.secao { font-size: 12pt; margin: 18pt 0 4pt; }
   p.item { margin: 2pt 0; }
   .assinatura { text-align: center; margin-top: 36pt; }
@@ -190,49 +168,63 @@ export function montarHtmlIntervencao(conteudo: ConteudoPlanejamento, identidade
 ${htmlBorda(identidade)}
 ${htmlLogo(identidade)}
 <div class="conteudo">
-  <h1 class="titulo">Planejamento de Intervenção</h1>
-  ${itemHtml("Nome completo", conteudo.nomeCrianca)}
+  <h1 class="titulo">PLANO TERAPÊUTICO PSICOPEDAGÓGICO</h1>
+  <p class="subtitulo">Válido por 6 meses.</p>
+  ${itemHtml("Nome", conteudo.nomeCrianca)}
   ${itemHtml("Idade", conteudo.idade)}
-  ${itemHtml("Data", conteudo.dataSessao)}
-  ${itemHtml("Série", conteudo.serie)}
-  ${itemHtml("Neuropsicopedagoga responsável", `${conteudo.nomeProfissional} — ${conteudo.tituloProfissional}`)}
+  ${itemHtml("Nome dos responsáveis", conteudo.nomeResponsaveis)}
+  ${itemHtml("Data de nascimento", conteudo.dataNascimento)}
+  ${itemHtml("Ano", conteudo.anoNascimento)}
+  ${itemHtml("Atendimento", "Neuropsicopedagógico Clínico.")}
+  ${itemHtml("Data do Planejamento", conteudo.dataPlanejamento)}
+  ${itemHtml("Profissionais envolvidos", profissional)}
 
-  ${opcoesHtml("Tempo de sessão", TEMPOS_SESSAO, conteudo.tempoSessaoSelecionado)}
+  <h3 class="secao">Diagnóstico:</h3>
+  ${htmlTextoIa(conteudo.diagnostico)}
 
-  <h3 class="secao">Objetivo da intervenção desta sessão (para preenchimento sessão a sessão).</h3>
-  ${htmlTextoIa(conteudo.objetivo)}
+  <h3 class="secao">Anamnese:</h3>
+  ${htmlTextoIa(conteudo.anamneseResumo)}
 
-  <h3 class="secao">Atividades aplicadas.</h3>
-  <p>${comQuebrasDeLinha(conteudo.atividades)}</p>
+  <h3 class="secao">Protocolos de avaliação utilizados:</h3>
+  ${htmlTextoIa(conteudo.protocolosAvaliacao)}
 
-  <h3 class="secao">Materiais utilizados.</h3>
-  ${htmlTextoIa(conteudo.materiais)}
+  <h3 class="secao">Capacidades, interesses:</h3>
+  ${htmlTextoIa(conteudo.capacidadesInteresses)}
 
-  <h3 class="secao">Avaliação.</h3>
-  ${opcoesHtml("Atenção", AVALIACAO_ATENCAO_OPCOES, conteudo.avaliacaoAtencaoSelecionada)}
-  ${opcoesHtml("Motivação", AVALIACAO_MOTIVACAO_OPCOES, conteudo.avaliacaoMotivacaoSelecionada)}
-  ${opcoesHtml("Interação", AVALIACAO_INTERACAO_OPCOES, conteudo.avaliacaoInteracaoSelecionada)}
+  <h3 class="secao">Necessidades:</h3>
+  ${htmlTextoIa(conteudo.necessidades)}
 
-  <h3 class="secao">Observações:</h3>
-  <p>${comQuebrasDeLinha(conteudo.observacoes)}</p>
+  <h3 class="secao">Metas e prazos:</h3>
+  ${htmlTextoIa(conteudo.metasPrazos)}
 
-  ${opcoesHtml("Objetivo da sessão", OBJETIVO_SESSAO_OPCOES, conteudo.objetivoSessaoSelecionado)}
+  <h3 class="secao">Recursos/ estratégias:</h3>
+  ${htmlTextoIa(conteudo.recursosEstrategias)}
 
-  <p class="assinatura">___________________________________<br/>Assinatura ${escaparHtml(conteudo.tituloProfissional)}</p>
+  <h3 class="secao">Treinamento parental:</h3>
+  ${htmlTextoIa(conteudo.treinamentoParental)}
+
+  <h3 class="secao">Profissionais que a acompanham:</h3>
+  ${htmlTextoIa(conteudo.profissionaisAcompanham)}
+
+  <h3 class="secao">Quando e como são realizados os atendimentos:</h3>
+  ${htmlTextoIa(conteudo.frequenciaAtendimentos)}
+
+  <p class="assinatura">
+    __________________________________<br/>
+    ${escaparHtml(conteudo.nomeProfissional)}<br/>
+    ${escaparHtml(conteudo.tituloProfissional)}${conteudo.registroProfissional ? `<br/>${escaparHtml(conteudo.registroProfissional)}` : ""}
+  </p>
 </div>
 </body>
 </html>`;
 }
 
-// Sem numeração de página aqui de propósito — o printToPDF do Chromium não suporta caixas de
-// margem paginada de forma confiável. No DOCX (docxIntervencaoBuilder.ts) a numeração usa o
-// campo PAGE nativo do Word.
-export async function gerarPdfIntervencao(
-  conteudo: ConteudoPlanejamento,
+export async function gerarPdfPlanoTerapeutico(
+  conteudo: ConteudoPlanoTerapeutico,
   identidade: IdentidadeVisualConfig,
 ): Promise<Uint8Array> {
-  const html = montarHtmlIntervencao(conteudo, identidade);
-  const pastaTemp = mkdtempSync(path.join(app.getPath("temp"), "intervencao-pdf-"));
+  const html = montarHtmlPlanoTerapeutico(conteudo, identidade);
+  const pastaTemp = mkdtempSync(path.join(app.getPath("temp"), "plano-terapeutico-pdf-"));
   const caminhoHtml = path.join(pastaTemp, `${randomUUID()}.html`);
   writeFileSync(caminhoHtml, html, "utf8");
 

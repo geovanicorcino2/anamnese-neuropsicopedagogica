@@ -2,7 +2,7 @@ import { BrowserWindow, app } from "electron";
 import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { ConteudoRelatorioFinal } from "@core/services/relatorioFinalContent";
+import type { ConteudoRelatorioAvaliativo } from "@core/services/relatorioAvaliativoContent";
 import type { IdentidadeVisualConfig } from "@core/services/identidadeVisualConfig";
 import { formatarTextoIa } from "@core/services/textoIaFormatado";
 import {
@@ -19,7 +19,6 @@ import {
 } from "@main/assets/identidadeVisual";
 import { lerDimensoesImagem } from "@main/export/dimensoesImagem";
 
-// ABNT: margens esquerda/superior 3cm, direita/inferior 2cm — igual a pdfIntervencaoTemplate.ts.
 const MARGEM_ESQUERDA_EMU = 1080000;
 const MARGEM_DIREITA_EMU = 720000;
 const PAGINA_LARGURA_EMU = 7560310;
@@ -33,10 +32,6 @@ function escaparHtml(texto: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-function comQuebrasDeLinha(texto: string): string {
-  return escaparHtml(texto).split("\n").join("<br/>");
 }
 
 function svgFormaDecorativa(forma: FormaDecorativa, instancia: "cabecalho" | "rodape"): string {
@@ -90,13 +85,7 @@ function htmlBorda(identidade: IdentidadeVisualConfig): string {
   ].join("\n");
 }
 
-function imgLogo(
-  base64: string,
-  mime: string,
-  leftEmu: number,
-  larguraEmu: number,
-  alt: string,
-): string {
+function imgLogo(base64: string, mime: string, leftEmu: number, larguraEmu: number, alt: string): string {
   const estilo = [
     `left:${emuParaPolegadas(leftEmu)}in`,
     `top:${emuParaPolegadas(DISTANCIA_CABECALHO_EMU + 40000)}in`,
@@ -106,10 +95,6 @@ function imgLogo(
   return `<img class="logo" style="${estilo}" src="data:${mime};base64,${base64}" alt="${escaparHtml(alt)}"/>`;
 }
 
-// Logo customizada do Perfil (se configurada) OU, por padrão, as 2 logos originais do modelo
-// (Humana Clínica + Ana Paula) lado a lado, centralizadas como um par — mesmo fallback usado no
-// DOCX (docxRelatorioFinalBuilder.ts). Sem isso a logo simplesmente não aparecia quando nenhuma
-// logo customizada estava configurada no Perfil.
 function htmlLogo(identidade: IdentidadeVisualConfig): string {
   const larguraConteudoEmu = PAGINA_LARGURA_EMU - MARGEM_ESQUERDA_EMU - MARGEM_DIREITA_EMU;
 
@@ -122,17 +107,15 @@ function htmlLogo(identidade: IdentidadeVisualConfig): string {
 
   const larguraHumanaEmu = Math.round(ALTURA_LOGO_EMU * (LOGO_HUMANA_LARGURA_EMU / LOGO_HUMANA_ALTURA_EMU));
   const larguraAnaPaulaEmu = Math.round(ALTURA_LOGO_EMU * (LOGO_ANAPAULA_LARGURA_EMU / LOGO_ANAPAULA_ALTURA_EMU));
-  const espacoEntreEmu = 180000;
-  const inicioEmu =
-    MARGEM_ESQUERDA_EMU +
-    Math.max(0, Math.round((larguraConteudoEmu - (larguraHumanaEmu + espacoEntreEmu + larguraAnaPaulaEmu)) / 2));
+  const margemInternaEmu = 40000;
+  const inicioEmu = MARGEM_ESQUERDA_EMU + Math.max(margemInternaEmu, larguraConteudoEmu - larguraHumanaEmu - margemInternaEmu);
 
   return [
     imgLogo(LOGO_HUMANA_PNG_BASE64, "image/png", inicioEmu, larguraHumanaEmu, "Logo Humana Clínica de Saúde Integrada"),
     imgLogo(
       LOGO_ANAPAULA_JPEG_BASE64,
       "image/jpeg",
-      inicioEmu + larguraHumanaEmu + espacoEntreEmu,
+      MARGEM_ESQUERDA_EMU + margemInternaEmu,
       larguraAnaPaulaEmu,
       "Logo Ana Paula M. Gontijo, Neuropsicopedagoga",
     ),
@@ -140,11 +123,9 @@ function htmlLogo(identidade: IdentidadeVisualConfig): string {
 }
 
 function itemHtml(rotulo: string, valor: string): string {
-  return `<p class="item"><b>${escaparHtml(rotulo)}:</b> ${comQuebrasDeLinha(valor)}</p>`;
+  return `<p class="item"><b>${escaparHtml(rotulo)}:</b> ${escaparHtml(valor)}</p>`;
 }
 
-// Renderiza texto gerado por IA interpretando a formatação markdown leve que ela às vezes usa
-// (ver textoIaFormatado.ts) em vez de mostrar "**"/"#"/"---" literalmente.
 function htmlTextoIa(textoBruto: string): string {
   const linhas = formatarTextoIa(textoBruto);
   return linhas
@@ -157,12 +138,10 @@ function htmlTextoIa(textoBruto: string): string {
     .join("\n");
 }
 
-export function montarHtmlRelatorioFinal(conteudo: ConteudoRelatorioFinal, identidade: IdentidadeVisualConfig): string {
-  const data = new Date(conteudo.geradoEm).toLocaleDateString("pt-BR");
-  const observacoesHtml = conteudo.observacoesFinais.trim()
-    ? `<h3 class="secao">Observações finais</h3>\n<p>${comQuebrasDeLinha(conteudo.observacoesFinais)}</p>`
-    : "";
-
+export function montarHtmlRelatorioAvaliativo(
+  conteudo: ConteudoRelatorioAvaliativo,
+  identidade: IdentidadeVisualConfig,
+): string {
   return `<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -184,41 +163,62 @@ export function montarHtmlRelatorioFinal(conteudo: ConteudoRelatorioFinal, ident
 ${htmlBorda(identidade)}
 ${htmlLogo(identidade)}
 <div class="conteudo">
-  <h1 class="titulo">RELATÓRIO FINAL</h1>
-  ${itemHtml("Criança", conteudo.nomeCrianca)}
+  <h1 class="titulo">RELATÓRIO AVALIATIVO</h1>
+  <h3 class="secao">Dados do paciente</h3>
+  ${itemHtml("Nome", conteudo.nomeCrianca)}
+  ${itemHtml("Idade", conteudo.idade)}
   ${itemHtml("Data de nascimento", conteudo.dataNascimento)}
+  ${itemHtml("Série/ano escolar", conteudo.serie)}
+  ${itemHtml("Turno", conteudo.turno)}
   ${itemHtml("Escola", conteudo.escola)}
-  ${itemHtml("Data", data)}
-  ${itemHtml("Profissional", `${conteudo.nomeProfissional} — ${conteudo.tituloProfissional}`)}
+  ${itemHtml("Nome dos responsáveis", conteudo.nomeResponsaveis)}
+  ${itemHtml("Data do início da avaliação", conteudo.dataInicioAvaliacao)}
+  ${itemHtml("Data de encerramento", conteudo.dataEncerramento)}
+  ${itemHtml("Profissional responsável", `${conteudo.tituloProfissional} ${conteudo.nomeProfissional}`)}
 
-  <h3 class="secao">Objetivo alcançado</h3>
-  <p>${comQuebrasDeLinha(conteudo.objetivoAlcancado)}</p>
+  <h3 class="secao">Objetivo da Avaliação</h3>
+  ${htmlTextoIa(conteudo.objetivoAvaliacao)}
 
-  <h3 class="secao">Avaliação</h3>
-  ${itemHtml("Atenção", conteudo.avaliacaoAtencao)}
-  ${itemHtml("Motivação", conteudo.avaliacaoMotivacao)}
-  ${itemHtml("Interação", conteudo.avaliacaoInteracao)}
+  <h3 class="secao">Histórico Escolar e Familiar</h3>
+  ${htmlTextoIa(conteudo.historicoEscolarFamiliar)}
 
-  <h3 class="secao">Relatório</h3>
-  ${htmlTextoIa(conteudo.relatorioGerado)}
+  <h3 class="secao">Aspectos Emocionais e Comportamentais</h3>
+  ${htmlTextoIa(conteudo.aspectosEmocionaisComportamentais)}
 
-  ${observacoesHtml}
+  <h3 class="secao">Metodologia da avaliação</h3>
+  ${htmlTextoIa(conteudo.metodologiaAvaliacao)}
 
-  <p class="assinatura">___________________________________<br/>Assinatura ${escaparHtml(conteudo.tituloProfissional)}</p>
+  <h3 class="secao">Aspectos Cognitivos e de Aprendizagem</h3>
+  ${htmlTextoIa(conteudo.aspectosCognitivosAprendizagem)}
+
+  <h3 class="secao">Instrumentos Utilizados</h3>
+  ${htmlTextoIa(conteudo.instrumentosUtilizados)}
+
+  <h3 class="secao">Resultados da Avaliação</h3>
+  ${htmlTextoIa(conteudo.resultadosAvaliacao)}
+
+  <h3 class="secao">Intervenções Aplicadas</h3>
+  ${htmlTextoIa(conteudo.intervencoesAplicadas)}
+
+  <h3 class="secao">Recomendações</h3>
+  ${htmlTextoIa(conteudo.recomendacoes)}
+
+  <p class="assinatura">
+    __________________________________<br/>
+    ${escaparHtml(conteudo.nomeProfissional)}<br/>
+    ${escaparHtml(conteudo.tituloProfissional)}
+  </p>
 </div>
 </body>
 </html>`;
 }
 
-// Sem numeração de página aqui de propósito — mesmo motivo de pdfIntervencaoTemplate.ts (o
-// printToPDF do Chromium não suporta caixas de margem paginada de forma confiável). No DOCX
-// (docxRelatorioFinalBuilder.ts) a numeração usa o campo PAGE nativo do Word.
-export async function gerarPdfRelatorioFinal(
-  conteudo: ConteudoRelatorioFinal,
+export async function gerarPdfRelatorioAvaliativo(
+  conteudo: ConteudoRelatorioAvaliativo,
   identidade: IdentidadeVisualConfig,
 ): Promise<Uint8Array> {
-  const html = montarHtmlRelatorioFinal(conteudo, identidade);
-  const pastaTemp = mkdtempSync(path.join(app.getPath("temp"), "relatorio-final-pdf-"));
+  const html = montarHtmlRelatorioAvaliativo(conteudo, identidade);
+  const pastaTemp = mkdtempSync(path.join(app.getPath("temp"), "relatorio-avaliativo-pdf-"));
   const caminhoHtml = path.join(pastaTemp, `${randomUUID()}.html`);
   writeFileSync(caminhoHtml, html, "utf8");
 
