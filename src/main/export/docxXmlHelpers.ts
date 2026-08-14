@@ -1,4 +1,21 @@
 import type { FormaDecorativa } from "@main/assets/identidadeVisual";
+import { formatarTextoIa } from "@core/services/textoIaFormatado";
+
+// JSZip aceita string direto em zip.file(), mas isso já causou acentuação corrompida (mojibake:
+// "IDENTIFICAÇÃO" virando "IDENTIFICAÃ‡ÃƒO") especificamente rodando dentro do app Electron
+// empacotado/dev — não reproduz em script standalone via tsx. Codificar pra bytes UTF-8 na mão
+// evita depender do encoder de string interno do JSZip nesse ambiente.
+export function utf8Bytes(texto: string): Uint8Array {
+  return Buffer.from(texto, "utf8");
+}
+
+// Mesma cautela do utf8Bytes, mas pro caminho inverso: em vez de deixar o JSZip decodificar a
+// string base64 internamente (opção { base64: true }), decodifica na mão e entrega os bytes já
+// prontos. As imagens (logo/borda) usavam { base64: true } e continuavam arriscando o mesmo tipo
+// de bug de processamento de string do JSZip nesse ambiente — ver utf8Bytes.
+export function base64Bytes(base64: string): Uint8Array {
+  return Buffer.from(base64, "base64");
+}
 
 export function escaparXml(texto: string): string {
   return texto
@@ -71,7 +88,7 @@ export function xmlFormaDecorativa(forma: FormaDecorativa, instancia: "cabecalho
 </w:drawing></w:r></w:p>`;
 }
 
-export function xmlImagemAncorada(opcoes: {
+export interface OpcoesImagemAncorada {
   relationId: string;
   nome: string;
   larguraEmu: number;
@@ -79,10 +96,17 @@ export function xmlImagemAncorada(opcoes: {
   offsetXEmu: number;
   offsetYEmu: number;
   relativeFrom?: "columnParagraph" | "page";
-}): string {
+}
+
+// Só o <w:r>...<w:drawing>...</w:drawing></w:r> — sem o <w:p> em volta. Existe pra permitir
+// ancorar 2+ imagens no MESMO parágrafo (necessário quando a posição é relativeFrom="paragraph":
+// cada parágrafo novo desloca o "topo" de referência, então duas imagens que devem ficar na
+// mesma "linha zero" do cabeçalho — como as 2 logos do modelo original — têm que estar juntas no
+// mesmo <w:p>, não em parágrafos separados).
+export function xmlRunImagemAncorada(opcoes: OpcoesImagemAncorada): string {
   const id = proximoIdDesenho++;
   const [relFromH, relFromV] = opcoes.relativeFrom === "page" ? ["page", "page"] : ["column", "paragraph"];
-  return `<w:p><w:r><w:rPr><w:noProof/></w:rPr><w:drawing>
+  return `<w:r><w:rPr><w:noProof/></w:rPr><w:drawing>
 <wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="${251600000 + id}" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">
 <wp:simplePos x="0" y="0"/>
 <wp:positionH relativeFrom="${relFromH}"><wp:posOffset>${opcoes.offsetXEmu}</wp:posOffset></wp:positionH>
@@ -102,5 +126,32 @@ export function xmlImagemAncorada(opcoes: {
 </a:graphicData>
 </a:graphic>
 </wp:anchor>
-</w:drawing></w:r></w:p>`;
+</w:drawing></w:r>`;
+}
+
+export function xmlImagemAncorada(opcoes: OpcoesImagemAncorada): string {
+  return `<w:p>${xmlRunImagemAncorada(opcoes)}</w:p>`;
+}
+
+// Renderiza texto gerado por IA (Sugestão de Intervenção / Relatório Final) interpretando a
+// formatação markdown leve que a IA às vezes usa (ver textoIaFormatado.ts) em vez de despejar o
+// texto bruto — sem isso, "**"/"#"/"---" apareciam literalmente no documento. Uma linha =
+// um <w:p> próprio (não <w:br/> dentro de um único parágrafo) para não sofrer o estica-mento de
+// espaçamento que o Word aplica a linhas manualmente quebradas dentro de um parágrafo justificado.
+export function paragrafoTextoIa(textoBruto: string): string {
+  const linhas = formatarTextoIa(textoBruto);
+  if (linhas.length === 0) return "";
+
+  return linhas
+    .map((linha) => {
+      const runs = linha.spans
+        .map((span) => {
+          if (!span.texto) return "";
+          const rPr = span.negrito ? "<w:rPr><w:b/></w:rPr>" : "";
+          return `<w:r>${rPr}<w:t xml:space="preserve">${escaparXml(span.texto)}</w:t></w:r>`;
+        })
+        .join("");
+      return `<w:p><w:pPr><w:spacing w:before="120"/></w:pPr>${runs}</w:p>`;
+    })
+    .join("");
 }

@@ -2,6 +2,7 @@ import { dialog } from "electron";
 import { writeFileSync } from "node:fs";
 import { montarConteudoFicha, type ConteudoFicha } from "@core/services/anamneseContent";
 import type { IdentidadeVisualConfig } from "@core/services/identidadeVisualConfig";
+import type { Ficha } from "@core/db/types";
 import { familiaresRepository, fichasRepository, perfilRepository, respostasRepository } from "@main/db";
 import { gerarDocxAnamnese } from "@main/export/docxAnamneseBuilder";
 import { gerarPdfAnamnese } from "@main/export/pdfAnamnesePrint";
@@ -16,7 +17,13 @@ function nomeArquivoSugerido(nomeCrianca: string, extensao: string): string {
   return `Anamnese - ${nomeSeguro}.${extensao}`;
 }
 
-async function montarConteudoDaFicha(idFicha: string): Promise<ConteudoFicha> {
+interface DadosExportacaoFicha {
+  ficha: Ficha;
+  conteudo: ConteudoFicha;
+  respostasMap: Map<string, string>;
+}
+
+async function montarConteudoDaFicha(idFicha: string): Promise<DadosExportacaoFicha> {
   const ficha = fichasRepository.getFicha(idFicha);
   if (!ficha) throw new Error(`Ficha "${idFicha}" não encontrada.`);
 
@@ -26,7 +33,10 @@ async function montarConteudoDaFicha(idFicha: string): Promise<ConteudoFicha> {
   const respostas = respostasRepository.listRespostas(idFicha);
   const familiares = familiaresRepository.listFamiliares(idFicha);
 
-  return montarConteudoFicha({ ficha, perfil, respostas, familiares });
+  const conteudo = montarConteudoFicha({ ficha, perfil, respostas, familiares });
+  const respostasMap = new Map(respostas.map((r) => [r.ID_Campo, r.Valor]));
+
+  return { ficha, conteudo, respostasMap };
 }
 
 function obterIdentidadeVisual(): IdentidadeVisualConfig {
@@ -40,7 +50,7 @@ function obterIdentidadeVisual(): IdentidadeVisualConfig {
 }
 
 export async function exportarFichaDocx(idFicha: string): Promise<ResultadoExportacao> {
-  const conteudo = await montarConteudoDaFicha(idFicha);
+  const { ficha, conteudo, respostasMap } = await montarConteudoDaFicha(idFicha);
   const { canceled, filePath } = await dialog.showSaveDialog({
     title: "Salvar ficha de anamnese (Word)",
     defaultPath: nomeArquivoSugerido(conteudo.nomeCrianca, "docx"),
@@ -48,13 +58,13 @@ export async function exportarFichaDocx(idFicha: string): Promise<ResultadoExpor
   });
   if (canceled || !filePath) return { cancelado: true };
 
-  const bytes = await gerarDocxAnamnese(conteudo, obterIdentidadeVisual());
+  const bytes = await gerarDocxAnamnese(ficha, conteudo, respostasMap, obterIdentidadeVisual());
   writeFileSync(filePath, bytes);
   return { cancelado: false, caminho: filePath };
 }
 
 export async function exportarFichaPdf(idFicha: string): Promise<ResultadoExportacao> {
-  const conteudo = await montarConteudoDaFicha(idFicha);
+  const { ficha, conteudo, respostasMap } = await montarConteudoDaFicha(idFicha);
   const { canceled, filePath } = await dialog.showSaveDialog({
     title: "Salvar ficha de anamnese (PDF)",
     defaultPath: nomeArquivoSugerido(conteudo.nomeCrianca, "pdf"),
@@ -62,7 +72,7 @@ export async function exportarFichaPdf(idFicha: string): Promise<ResultadoExport
   });
   if (canceled || !filePath) return { cancelado: true };
 
-  const bytes = await gerarPdfAnamnese(conteudo, obterIdentidadeVisual());
+  const bytes = await gerarPdfAnamnese(ficha, conteudo, respostasMap, obterIdentidadeVisual());
   writeFileSync(filePath, bytes);
   return { cancelado: false, caminho: filePath };
 }

@@ -1,8 +1,22 @@
+import { ANAMNESE_SCHEMA, encontrarCampo } from "@core/data/anamneseSchema";
+import { MODELO_ANAMNESE_ORIGINAL, type LinhaModelo, type SegmentoLinha } from "@core/data/anamneseModeloOriginal";
 import type { ConteudoFicha } from "@core/services/anamneseContent";
+import { opcaoEstaSelecionada, resolverCampoFicha, resolverValorCampo } from "@core/services/anamneseModeloResolver";
 import type { IdentidadeVisualConfig } from "@core/services/identidadeVisualConfig";
+import type { Ficha } from "@core/db/types";
 import {
   BORDA_ROXA,
   BORDA_VERDE,
+  LOGO_ANAPAULA_ALTURA_EMU,
+  LOGO_ANAPAULA_JPEG_BASE64,
+  LOGO_ANAPAULA_LARGURA_EMU,
+  LOGO_ANAPAULA_OFFSET_X_EMU,
+  LOGO_ANAPAULA_OFFSET_Y_EMU,
+  LOGO_HUMANA_ALTURA_EMU,
+  LOGO_HUMANA_LARGURA_EMU,
+  LOGO_HUMANA_OFFSET_X_EMU,
+  LOGO_HUMANA_OFFSET_Y_EMU,
+  LOGO_HUMANA_PNG_BASE64,
   MARGEM_DIREITA_EMU,
   MARGEM_ESQUERDA_EMU,
   PAGINA_LARGURA_EMU,
@@ -26,6 +40,12 @@ function escaparHtml(texto: string): string {
 
 function comQuebrasDeLinha(texto: string): string {
   return escaparHtml(texto).split("\n").join("<br/>");
+}
+
+// "\t" do modelo (ver anamneseModeloOriginal.ts) vira um espaçador de largura fixa — HTML/CSS não
+// tem tabulação de verdade como o Word.
+function comEspacamento(texto: string): string {
+  return escaparHtml(texto).split("\t").join('<span class="tab"></span>');
 }
 
 function svgFormaDecorativa(forma: FormaDecorativa, instancia: "cabecalho" | "rodape"): string {
@@ -74,22 +94,66 @@ function htmlBorda(identidade: IdentidadeVisualConfig): string {
   ].join("\n");
 }
 
-function htmlLogo(identidade: IdentidadeVisualConfig): string {
-  if (!identidade.logoBase64 || !identidade.logoMime) return "";
-
-  const dimensoes = lerDimensoesImagem(identidade.logoBase64, identidade.logoMime);
-  const larguraLogoEmu = Math.round(ALTURA_LOGO_EMU * (dimensoes.larguraPx / dimensoes.alturaPx));
-  const larguraConteudoEmu = PAGINA_LARGURA_EMU - MARGEM_ESQUERDA_EMU - MARGEM_DIREITA_EMU;
-  const leftEmu = MARGEM_ESQUERDA_EMU + Math.max(0, Math.round((larguraConteudoEmu - larguraLogoEmu) / 2));
-  const topEmu = DISTANCIA_CABECALHO_EMU + 40000;
-
+function imgLogo(
+  base64: string,
+  mime: string,
+  pos: { xEmu: number; yEmu: number; larguraEmu: number; alturaEmu: number },
+  alt: string,
+): string {
   const estilo = [
-    `left:${emuParaPolegadas(leftEmu)}in`,
-    `top:${emuParaPolegadas(topEmu)}in`,
-    `width:${emuParaPolegadas(larguraLogoEmu)}in`,
-    `height:${emuParaPolegadas(ALTURA_LOGO_EMU)}in`,
+    `left:${emuParaPolegadas(MARGEM_ESQUERDA_EMU + pos.xEmu)}in`,
+    `top:${emuParaPolegadas(DISTANCIA_CABECALHO_EMU + pos.yEmu)}in`,
+    `width:${emuParaPolegadas(pos.larguraEmu)}in`,
+    `height:${emuParaPolegadas(pos.alturaEmu)}in`,
   ].join(";");
-  return `<img class="logo" style="${estilo}" src="data:${identidade.logoMime};base64,${identidade.logoBase64}" alt="Logo do relatório"/>`;
+  return `<img class="logo" style="${estilo}" src="data:${mime};base64,${base64}" alt="${escaparHtml(alt)}"/>`;
+}
+
+interface LogoRenderizado {
+  html: string;
+  // Ponto mais baixo (EMU, a partir do topo da página) entre as logos renderizadas — usado pra
+  // calcular o padding-top do conteúdo dinamicamente. Diferente do DOCX (onde o Word empurra o
+  // corpo do texto pra baixo sozinho quando o cabeçalho é mais alto que a margem), HTML/CSS não
+  // faz isso: um padding-top fixo demais pequeno deixa o texto por cima da logo.
+  bordaInferiorEmu: number;
+}
+
+// Logo custom do Perfil (se configurada) OU, por padrão, as 2 logos originais do modelo — mesmo
+// fallback de docxAnamneseBuilder.ts (resolverImagensLogo).
+function htmlLogo(identidade: IdentidadeVisualConfig): LogoRenderizado {
+  if (identidade.logoBase64 && identidade.logoMime) {
+    const dimensoes = lerDimensoesImagem(identidade.logoBase64, identidade.logoMime);
+    const larguraLogoEmu = Math.round(ALTURA_LOGO_EMU * (dimensoes.larguraPx / dimensoes.alturaPx));
+    const larguraConteudoEmu = PAGINA_LARGURA_EMU - MARGEM_ESQUERDA_EMU - MARGEM_DIREITA_EMU;
+    const offsetXEmu = Math.max(0, Math.round((larguraConteudoEmu - larguraLogoEmu) / 2));
+    const pos = { xEmu: offsetXEmu, yEmu: 40000, larguraEmu: larguraLogoEmu, alturaEmu: ALTURA_LOGO_EMU };
+    return {
+      html: imgLogo(identidade.logoBase64, identidade.logoMime, pos, "Logo do relatório"),
+      bordaInferiorEmu: DISTANCIA_CABECALHO_EMU + pos.yEmu + pos.alturaEmu,
+    };
+  }
+
+  const posHumana = {
+    xEmu: LOGO_HUMANA_OFFSET_X_EMU,
+    yEmu: LOGO_HUMANA_OFFSET_Y_EMU,
+    larguraEmu: LOGO_HUMANA_LARGURA_EMU,
+    alturaEmu: LOGO_HUMANA_ALTURA_EMU,
+  };
+  const posAnaPaula = {
+    xEmu: LOGO_ANAPAULA_OFFSET_X_EMU,
+    yEmu: LOGO_ANAPAULA_OFFSET_Y_EMU,
+    larguraEmu: LOGO_ANAPAULA_LARGURA_EMU,
+    alturaEmu: LOGO_ANAPAULA_ALTURA_EMU,
+  };
+  const html = [
+    imgLogo(LOGO_HUMANA_PNG_BASE64, "image/png", posHumana, "Logo Humana Clínica de Saúde Integrada"),
+    imgLogo(LOGO_ANAPAULA_JPEG_BASE64, "image/jpeg", posAnaPaula, "Logo Ana Paula M. Gontijo, Neuropsicopedagoga"),
+  ].join("\n");
+  const bordaInferiorEmu = Math.max(
+    DISTANCIA_CABECALHO_EMU + posHumana.yEmu + posHumana.alturaEmu,
+    DISTANCIA_CABECALHO_EMU + posAnaPaula.yEmu + posAnaPaula.alturaEmu,
+  );
+  return { html, bordaInferiorEmu };
 }
 
 function tabelaFamiliaresHtml(familiares: ConteudoFicha["familiares"]): string {
@@ -99,27 +163,93 @@ function tabelaFamiliaresHtml(familiares: ConteudoFicha["familiares"]): string {
   const linhas = familiares
     .map((f) => `<tr><td>${escaparHtml(f.nome)}</td><td>${escaparHtml(f.idade)}</td><td>${escaparHtml(f.relacao)}</td></tr>`)
     .join("");
-  return `<table><thead><tr><th>Nome</th><th>Idade</th><th>Relação</th></tr></thead><tbody>${linhas}</tbody></table>`;
+  return `<table class="familiares"><thead><tr><th>Nome</th><th>Idade</th><th>Relação</th></tr></thead><tbody>${linhas}</tbody></table>`;
 }
 
-const TIPOS_CURTOS = new Set(["texto", "numero", "data", "hora", "sim_nao", "selecao"]);
-
-function itemHtml(item: ConteudoFicha["secoes"][number]["itens"][number]): string {
-  return `<p class="item"><b>${escaparHtml(item.rotulo)}:</b> ${comQuebrasDeLinha(item.valor)}</p>`;
+// Grade 4x8 sem bordas — mesma ordem/agrupamento de docxAnamneseBuilder.ts (tabelaHistoriaClinica).
+function tabelaHistoriaClinicaHtml(respostas: Map<string, string>): string {
+  const campo = encontrarCampo("historia_clinica.doencas");
+  const doencas = campo?.opcoes ?? [];
+  const linhas: string[] = [];
+  for (let i = 0; i < doencas.length; i += 4) {
+    const grupo = doencas.slice(i, i + 4);
+    const celulas = grupo
+      .map((doenca) => {
+        const marcado = opcaoEstaSelecionada("historia_clinica.doencas", doenca, respostas);
+        return `<td class="checkbox">${marcado ? "X" : ""}</td><td>${escaparHtml(doenca)}</td>`;
+      })
+      .join("");
+    linhas.push(`<tr>${celulas}</tr>`);
+  }
+  return `<table class="historia-clinica">${linhas.join("")}</table>`;
 }
 
-export function montarHtmlFicha(conteudo: ConteudoFicha, identidade: IdentidadeVisualConfig): string {
-  const secoesHtml = conteudo.secoes
-    .map((secao) => {
-      const curtos = secao.itens.filter((item) => TIPOS_CURTOS.has(item.tipo));
-      const longos = secao.itens.filter((item) => !TIPOS_CURTOS.has(item.tipo));
+function renderizarSegmentoHtml(
+  segmento: SegmentoLinha,
+  ficha: Ficha,
+  respostas: Map<string, string>,
+  negritoLinha: boolean | undefined,
+): string {
+  const negrito = (segmento.tipo === "texto" && segmento.negrito) || negritoLinha;
+  const abrir = negrito ? "<b>" : "";
+  const fechar = negrito ? "</b>" : "";
 
-      const grade = curtos.length > 0 ? `<div class="grade-curtos">${curtos.map(itemHtml).join("\n")}</div>` : "";
-      const itensLongos = longos.map(itemHtml).join("\n");
-      const tabela = secao.id === "composicao_familiar" ? tabelaFamiliaresHtml(conteudo.familiares) : "";
-      return `<h3 class="secao">${escaparHtml(secao.titulo.toUpperCase())}</h3>\n${grade}\n${itensLongos}\n${tabela}`;
-    })
-    .join("\n");
+  if (segmento.tipo === "texto") return `${abrir}${comEspacamento(segmento.texto)}${fechar}`;
+  if (segmento.tipo === "campo") return `${abrir}${comQuebrasDeLinha(resolverValorCampo(segmento.campoId, respostas))}${fechar}`;
+  if (segmento.tipo === "campo_ficha") return `${abrir}${escaparHtml(resolverCampoFicha(segmento.campo, ficha))}${fechar}`;
+
+  const marcado = opcaoEstaSelecionada(segmento.campoId, segmento.opcao, respostas);
+  return `${abrir}${escaparHtml(`(${marcado ? "X" : "  "}) ${segmento.rotulo}`)}${fechar}`;
+}
+
+function paragrafoLinhaHtml(linhaModelo: LinhaModelo, ficha: Ficha, respostas: Map<string, string>): string {
+  const conteudo = linhaModelo.segmentos
+    .map((segmento) => renderizarSegmentoHtml(segmento, ficha, respostas, linhaModelo.negrito))
+    .join("");
+  return `<p class="linha">${conteudo}</p>`;
+}
+
+const MESES_PT = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
+function dataPorExtenso(data: Date): string {
+  return `${data.getDate()} de ${MESES_PT[data.getMonth()]} de ${data.getFullYear()}`;
+}
+
+// Reproduz o texto corrido do documento-modelo (MODELO_ANAMNESE_ORIGINAL), igual ao
+// docxAnamneseBuilder.ts — ver anamneseModeloOriginal.ts pro porquê.
+export function montarHtmlFicha(
+  ficha: Ficha,
+  conteudo: ConteudoFicha,
+  respostas: Map<string, string>,
+  identidade: IdentidadeVisualConfig,
+): string {
+  const secoesHtml = ANAMNESE_SCHEMA.map((secaoSchema) => {
+    const secaoModelo = MODELO_ANAMNESE_ORIGINAL.find((s) => s.secaoId === secaoSchema.id);
+    const partes: string[] = [`<h3 class="secao">${escaparHtml(secaoSchema.titulo.toUpperCase())}</h3>`];
+
+    if (secaoSchema.id === "historia_clinica") {
+      partes.push(tabelaHistoriaClinicaHtml(respostas));
+    }
+    if (secaoModelo) {
+      for (const linhaModelo of secaoModelo.linhas) {
+        partes.push(paragrafoLinhaHtml(linhaModelo, ficha, respostas));
+      }
+    }
+    if (secaoSchema.id === "composicao_familiar") {
+      partes.push(tabelaFamiliaresHtml(conteudo.familiares));
+    }
+    return partes.join("\n");
+  }).join("\n");
+
+  const dataAssinatura = dataPorExtenso(new Date(conteudo.geradoEm));
+  const logo = htmlLogo(identidade);
+  // HTML/CSS não empurra o corpo do texto pra baixo sozinho quando o cabeçalho é mais alto que a
+  // margem (diferente do Word) — por isso o padding-top é o maior entre a margem original e a
+  // borda inferior real da(s) logo(s) renderizada(s), com uma folga pra não ficar colado.
+  const paddingTopoCm = Math.max(2.5, emuParaPolegadas(logo.bordaInferiorEmu + 40000) * 2.54);
 
   return `<!doctype html>
 <html lang="pt-BR">
@@ -129,29 +259,29 @@ export function montarHtmlFicha(conteudo: ConteudoFicha, identidade: IdentidadeV
   @page { size: A4; margin: 0; }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
-  body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #1a1a1a; }
+  body { font-family: Arial, sans-serif; font-size: 11pt; color: #000; line-height: 1.35; }
   .forma-decorativa, .logo { position: fixed; z-index: 0; }
-  .conteudo { position: relative; z-index: 1; padding: 2.5cm 2.25cm 1cm 2.5cm; }
-  h1.titulo-ficha { text-align: center; font-size: 20pt; margin: 0 0 4pt; }
-  h2.nome-crianca { text-align: center; font-size: 15pt; margin: 0 0 18pt; }
-  h3.secao { font-size: 12.5pt; margin: 16pt 0 6pt; border-bottom: 1px solid #ccc; padding-bottom: 2pt; }
-  .grade-curtos { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18pt; }
-  p.item { margin: 2pt 0; font-size: 10.5pt; }
-  table { border-collapse: collapse; width: 100%; margin: 6pt 0; font-size: 10pt; }
-  th, td { border: 1px solid #999; padding: 4pt 6pt; text-align: left; }
+  .conteudo { position: relative; z-index: 1; padding: ${paddingTopoCm}cm 2.25cm 1cm 2.5cm; text-align: justify; }
+  h3.secao { font-size: 11pt; font-weight: bold; margin: 10pt 0 4pt; }
+  p.linha { margin: 1pt 0; }
+  .tab { display: inline-block; width: 2em; }
+  table.familiares { border-collapse: collapse; width: 100%; margin: 4pt 0; font-size: 10.5pt; }
+  table.familiares th, table.familiares td { border: 1px solid #333; padding: 3pt 6pt; text-align: left; }
+  table.historia-clinica { border-collapse: collapse; margin: 4pt 0; font-size: 10.5pt; }
+  table.historia-clinica td { padding: 1pt 4pt; }
+  table.historia-clinica td.checkbox { width: 1em; text-align: center; font-weight: bold; }
   .assinatura { text-align: center; margin-top: 10pt; }
-  .rodape-info { font-size: 9pt; color: #666; margin-top: 24pt; }
 </style>
 </head>
 <body>
 ${htmlBorda(identidade)}
-${htmlLogo(identidade)}
+${logo.html}
 <div class="conteudo">
-  <h1 class="titulo-ficha">FICHA DE ANAMNESE</h1>
-  <h2 class="nome-crianca">${escaparHtml(conteudo.nomeCrianca)}</h2>
   ${secoesHtml}
-  <p class="rodape-info">Documento gerado em ${escaparHtml(new Date(conteudo.geradoEm).toLocaleString("pt-BR"))}.</p>
+  <p class="linha">Santa Helena de Goiás, ${escaparHtml(dataAssinatura)}.</p>
   <p class="assinatura">___________________________________<br/>Assinatura Responsável</p>
+  <p class="assinatura">___________________________________<br/>Assinatura Responsável</p>
+  <p class="assinatura">___________________________________<br/>Assinatura ${escaparHtml(conteudo.tituloProfissional)}</p>
   <p class="assinatura">___________________________________<br/>Assinatura ${escaparHtml(conteudo.tituloProfissional)}</p>
 </div>
 </body>

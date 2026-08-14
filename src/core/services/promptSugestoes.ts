@@ -18,6 +18,9 @@ Regras importantes:
 - Isso é uma SUGESTÃO inicial para revisão do profissional responsável, não um diagnóstico nem
   uma decisão clínica — deixe isso claro na resposta.
 - Baseie-se apenas nas informações fornecidas abaixo. Não invente dados que não estão na ficha.
+- Escreva em texto simples, SEM formatação markdown: não use **negrito**, não use "#" pra
+  cabeçalhos, não use "---" como divisor, não use listas com "-" ou "*". Este texto vai direto
+  para um documento Word/PDF que não interpreta markdown — os símbolos apareceriam literalmente.
 - Responda em EXATAMENTE duas seções, cada uma iniciada por um marcador em linha própria, nesta
   ordem e sem nenhum texto antes do primeiro marcador:
 

@@ -32,6 +32,9 @@ Regras importantes:
 - Responda em texto corrido (sem marcadores de seção, sem listas), num tom técnico e objetivo
   adequado a um relatório profissional, sintetizando a evolução da criança ao longo do
   acompanhamento com base no objetivo alcançado e na avaliação de atenção/motivação/interação.
+- Escreva em texto simples, SEM formatação markdown: não use **negrito**, não use "#" pra
+  cabeçalhos, não use "---" como divisor, não use listas com "-" ou "*". Este texto vai direto
+  para um documento Word/PDF que não interpreta markdown — os símbolos apareceriam literalmente.
 
 Criança: ${conteudoAnamnese.nomeCrianca}
 

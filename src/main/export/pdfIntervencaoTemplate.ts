@@ -4,9 +4,16 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { ConteudoIntervencao } from "@core/services/intervencaoContent";
 import type { IdentidadeVisualConfig } from "@core/services/identidadeVisualConfig";
+import { formatarTextoIa } from "@core/services/textoIaFormatado";
 import {
   BORDA_ROXA,
   BORDA_VERDE,
+  LOGO_ANAPAULA_ALTURA_EMU,
+  LOGO_ANAPAULA_JPEG_BASE64,
+  LOGO_ANAPAULA_LARGURA_EMU,
+  LOGO_HUMANA_ALTURA_EMU,
+  LOGO_HUMANA_LARGURA_EMU,
+  LOGO_HUMANA_PNG_BASE64,
   emuParaPolegadas,
   type FormaDecorativa,
 } from "@main/assets/identidadeVisual";
@@ -83,26 +90,71 @@ function htmlBorda(identidade: IdentidadeVisualConfig): string {
   ].join("\n");
 }
 
-function htmlLogo(identidade: IdentidadeVisualConfig): string {
-  if (!identidade.logoBase64 || !identidade.logoMime) return "";
-
-  const dimensoes = lerDimensoesImagem(identidade.logoBase64, identidade.logoMime);
-  const larguraLogoEmu = Math.round(ALTURA_LOGO_EMU * (dimensoes.larguraPx / dimensoes.alturaPx));
-  const larguraConteudoEmu = PAGINA_LARGURA_EMU - MARGEM_ESQUERDA_EMU - MARGEM_DIREITA_EMU;
-  const leftEmu = MARGEM_ESQUERDA_EMU + Math.max(0, Math.round((larguraConteudoEmu - larguraLogoEmu) / 2));
-  const topEmu = DISTANCIA_CABECALHO_EMU + 40000;
-
+function imgLogo(
+  base64: string,
+  mime: string,
+  leftEmu: number,
+  larguraEmu: number,
+  alt: string,
+): string {
   const estilo = [
     `left:${emuParaPolegadas(leftEmu)}in`,
-    `top:${emuParaPolegadas(topEmu)}in`,
-    `width:${emuParaPolegadas(larguraLogoEmu)}in`,
+    `top:${emuParaPolegadas(DISTANCIA_CABECALHO_EMU + 40000)}in`,
+    `width:${emuParaPolegadas(larguraEmu)}in`,
     `height:${emuParaPolegadas(ALTURA_LOGO_EMU)}in`,
   ].join(";");
-  return `<img class="logo" style="${estilo}" src="data:${identidade.logoMime};base64,${identidade.logoBase64}" alt="Logo do relatório"/>`;
+  return `<img class="logo" style="${estilo}" src="data:${mime};base64,${base64}" alt="${escaparHtml(alt)}"/>`;
+}
+
+// Logo customizada do Perfil (se configurada) OU, por padrão, as 2 logos originais do modelo
+// (Humana Clínica + Ana Paula) lado a lado, centralizadas como um par — mesmo fallback usado no
+// DOCX (docxIntervencaoBuilder.ts). Sem isso a logo simplesmente não aparecia quando nenhuma logo
+// customizada estava configurada no Perfil.
+function htmlLogo(identidade: IdentidadeVisualConfig): string {
+  const larguraConteudoEmu = PAGINA_LARGURA_EMU - MARGEM_ESQUERDA_EMU - MARGEM_DIREITA_EMU;
+
+  if (identidade.logoBase64 && identidade.logoMime) {
+    const dimensoes = lerDimensoesImagem(identidade.logoBase64, identidade.logoMime);
+    const larguraLogoEmu = Math.round(ALTURA_LOGO_EMU * (dimensoes.larguraPx / dimensoes.alturaPx));
+    const leftEmu = MARGEM_ESQUERDA_EMU + Math.max(0, Math.round((larguraConteudoEmu - larguraLogoEmu) / 2));
+    return imgLogo(identidade.logoBase64, identidade.logoMime, leftEmu, larguraLogoEmu, "Logo do relatório");
+  }
+
+  const larguraHumanaEmu = Math.round(ALTURA_LOGO_EMU * (LOGO_HUMANA_LARGURA_EMU / LOGO_HUMANA_ALTURA_EMU));
+  const larguraAnaPaulaEmu = Math.round(ALTURA_LOGO_EMU * (LOGO_ANAPAULA_LARGURA_EMU / LOGO_ANAPAULA_ALTURA_EMU));
+  const espacoEntreEmu = 180000;
+  const inicioEmu =
+    MARGEM_ESQUERDA_EMU +
+    Math.max(0, Math.round((larguraConteudoEmu - (larguraHumanaEmu + espacoEntreEmu + larguraAnaPaulaEmu)) / 2));
+
+  return [
+    imgLogo(LOGO_HUMANA_PNG_BASE64, "image/png", inicioEmu, larguraHumanaEmu, "Logo Humana Clínica de Saúde Integrada"),
+    imgLogo(
+      LOGO_ANAPAULA_JPEG_BASE64,
+      "image/jpeg",
+      inicioEmu + larguraHumanaEmu + espacoEntreEmu,
+      larguraAnaPaulaEmu,
+      "Logo Ana Paula M. Gontijo, Neuropsicopedagoga",
+    ),
+  ].join("\n");
 }
 
 function itemHtml(rotulo: string, valor: string): string {
   return `<p class="item"><b>${escaparHtml(rotulo)}:</b> ${comQuebrasDeLinha(valor)}</p>`;
+}
+
+// Renderiza texto gerado por IA interpretando a formatação markdown leve que ela às vezes usa
+// (ver textoIaFormatado.ts) em vez de mostrar "**"/"#"/"---" literalmente.
+function htmlTextoIa(textoBruto: string): string {
+  const linhas = formatarTextoIa(textoBruto);
+  return linhas
+    .map((linha) => {
+      const conteudo = linha.spans
+        .map((span) => (span.negrito ? `<b>${escaparHtml(span.texto)}</b>` : escaparHtml(span.texto)))
+        .join("");
+      return `<p>${conteudo}</p>`;
+    })
+    .join("\n");
 }
 
 export function montarHtmlIntervencao(conteudo: ConteudoIntervencao, identidade: IdentidadeVisualConfig): string {
@@ -143,10 +195,10 @@ ${htmlLogo(identidade)}
   <p>${comQuebrasDeLinha(conteudo.atividades)}</p>
 
   <h3 class="secao">Objetivo da intervenção</h3>
-  <p>${comQuebrasDeLinha(conteudo.objetivo)}</p>
+  ${htmlTextoIa(conteudo.objetivo)}
 
   <h3 class="secao">Materiais</h3>
-  <p>${comQuebrasDeLinha(conteudo.materiais)}</p>
+  ${htmlTextoIa(conteudo.materiais)}
 
   <p class="assinatura">___________________________________<br/>Assinatura ${escaparHtml(conteudo.tituloProfissional)}</p>
 </div>

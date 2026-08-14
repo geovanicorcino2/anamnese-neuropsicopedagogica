@@ -1,8 +1,26 @@
 import JSZip from "jszip";
 import type { ConteudoRelatorioFinal } from "@core/services/relatorioFinalContent";
 import type { IdentidadeVisualConfig } from "@core/services/identidadeVisualConfig";
-import { BORDA_ROXA, BORDA_VERDE, PAGINA_LARGURA_EMU } from "@main/assets/identidadeVisual";
-import { escaparXml, xmlFormaDecorativa, xmlImagemAncorada } from "@main/export/docxXmlHelpers";
+import {
+  BORDA_ROXA,
+  BORDA_VERDE,
+  LOGO_ANAPAULA_ALTURA_EMU,
+  LOGO_ANAPAULA_JPEG_BASE64,
+  LOGO_ANAPAULA_LARGURA_EMU,
+  LOGO_HUMANA_ALTURA_EMU,
+  LOGO_HUMANA_LARGURA_EMU,
+  LOGO_HUMANA_PNG_BASE64,
+  PAGINA_LARGURA_EMU,
+} from "@main/assets/identidadeVisual";
+import {
+  base64Bytes,
+  escaparXml,
+  paragrafoTextoIa,
+  utf8Bytes,
+  xmlFormaDecorativa,
+  xmlImagemAncorada,
+  xmlRunImagemAncorada,
+} from "@main/export/docxXmlHelpers";
 import { lerDimensoesImagem } from "@main/export/dimensoesImagem";
 
 const NAMESPACES_WORDML =
@@ -71,7 +89,7 @@ function montarCorpoDocumento(conteudo: ConteudoRelatorioFinal): string {
   partes.push(paragrafoItem("Interação", conteudo.avaliacaoInteracao));
 
   partes.push(tituloSecao("Relatório"));
-  partes.push(paragrafo(conteudo.relatorioGerado));
+  partes.push(paragrafoTextoIa(conteudo.relatorioGerado));
 
   if (conteudo.observacoesFinais.trim()) {
     partes.push(tituloSecao("Observações finais"));
@@ -100,27 +118,99 @@ function montarDocumentXml(conteudo: ConteudoRelatorioFinal): string {
 </w:body></w:document>`;
 }
 
-function xmlLogoCentralizado(identidade: IdentidadeVisualConfig): string {
-  if (!identidade.logoBase64 || !identidade.logoMime) return "";
-
-  const dimensoes = lerDimensoesImagem(identidade.logoBase64, identidade.logoMime);
-  const larguraLogoEmu = Math.round(ALTURA_LOGO_EMU * (dimensoes.larguraPx / dimensoes.alturaPx));
-  const larguraConteudoEmu = PAGINA_LARGURA_EMU - MARGEM_ESQUERDA_EMU - MARGEM_DIREITA_EMU;
-  const offsetXEmu = Math.max(0, Math.round((larguraConteudoEmu - larguraLogoEmu) / 2));
-
-  return xmlImagemAncorada({
-    relationId: "rId1",
-    nome: "Logo do relatório",
-    larguraEmu: larguraLogoEmu,
-    alturaEmu: ALTURA_LOGO_EMU,
-    offsetXEmu,
-    offsetYEmu: 40000,
-  });
+interface ImagemLogoHeader {
+  relationId: string;
+  arquivo: string;
+  base64: string;
+  larguraEmu: number;
+  alturaEmu: number;
+  offsetXEmu: number;
+  offsetYEmu: number;
+  nome: string;
 }
 
-function xmlBordaCabecalho(identidade: IdentidadeVisualConfig): string {
+// Logo customizada do Perfil (se configurada) OU, por padrão, as 2 logos originais do modelo
+// (Humana Clínica + Ana Paula) lado a lado, centralizadas como um par dentro da largura do
+// conteúdo deste documento — mesmo fallback de docxAnamneseBuilder.ts, mas recentralizado pras
+// margens ABNT deste documento (diferentes da margem do documento-modelo original da anamnese).
+// Sem esse fallback a logo simplesmente não aparecia quando nenhuma logo customizada estava
+// configurada no Perfil (era o caso reportado).
+function resolverImagensLogo(identidade: IdentidadeVisualConfig): ImagemLogoHeader[] {
+  const larguraConteudoEmu = PAGINA_LARGURA_EMU - MARGEM_ESQUERDA_EMU - MARGEM_DIREITA_EMU;
+
+  if (identidade.logoBase64 && identidade.logoMime) {
+    const dimensoes = lerDimensoesImagem(identidade.logoBase64, identidade.logoMime);
+    const larguraLogoEmu = Math.round(ALTURA_LOGO_EMU * (dimensoes.larguraPx / dimensoes.alturaPx));
+    const offsetXEmu = Math.max(0, Math.round((larguraConteudoEmu - larguraLogoEmu) / 2));
+
+    return [
+      {
+        relationId: "rId1",
+        arquivo: `logo.${extensaoPorMime(identidade.logoMime)}`,
+        base64: identidade.logoBase64,
+        larguraEmu: larguraLogoEmu,
+        alturaEmu: ALTURA_LOGO_EMU,
+        offsetXEmu,
+        offsetYEmu: 40000,
+        nome: "Logo do relatório",
+      },
+    ];
+  }
+
+  const larguraHumanaEmu = Math.round(ALTURA_LOGO_EMU * (LOGO_HUMANA_LARGURA_EMU / LOGO_HUMANA_ALTURA_EMU));
+  const larguraAnaPaulaEmu = Math.round(ALTURA_LOGO_EMU * (LOGO_ANAPAULA_LARGURA_EMU / LOGO_ANAPAULA_ALTURA_EMU));
+  const espacoEntreEmu = 180000;
+  const offsetXInicialEmu = Math.max(
+    0,
+    Math.round((larguraConteudoEmu - (larguraHumanaEmu + espacoEntreEmu + larguraAnaPaulaEmu)) / 2),
+  );
+
+  return [
+    {
+      relationId: "rId1",
+      arquivo: "logo-humana.png",
+      base64: LOGO_HUMANA_PNG_BASE64,
+      larguraEmu: larguraHumanaEmu,
+      alturaEmu: ALTURA_LOGO_EMU,
+      offsetXEmu: offsetXInicialEmu,
+      offsetYEmu: 40000,
+      nome: "Logo Humana Clínica de Saúde Integrada",
+    },
+    {
+      relationId: "rId2",
+      arquivo: "logo-anapaula.jpeg",
+      base64: LOGO_ANAPAULA_JPEG_BASE64,
+      larguraEmu: larguraAnaPaulaEmu,
+      alturaEmu: ALTURA_LOGO_EMU,
+      offsetXEmu: offsetXInicialEmu + larguraHumanaEmu + espacoEntreEmu,
+      offsetYEmu: 40000,
+      nome: "Logo Ana Paula M. Gontijo, Neuropsicopedagoga",
+    },
+  ];
+}
+
+// Posição relativeFrom="paragraph" — todas as logos precisam estar no MESMO <w:p>, senão cada
+// parágrafo novo desloca o "topo" de referência da próxima âncora (mesmo motivo documentado em
+// docxAnamneseBuilder.ts).
+function xmlLogosCabecalho(imagens: ImagemLogoHeader[]): string {
+  const runs = imagens
+    .map((imagem) =>
+      xmlRunImagemAncorada({
+        relationId: imagem.relationId,
+        nome: imagem.nome,
+        larguraEmu: imagem.larguraEmu,
+        alturaEmu: imagem.alturaEmu,
+        offsetXEmu: imagem.offsetXEmu,
+        offsetYEmu: imagem.offsetYEmu,
+      }),
+    )
+    .join("");
+  return `<w:p>${runs}</w:p>`;
+}
+
+function xmlBordaCabecalho(identidade: IdentidadeVisualConfig, proximoRId: string): string {
   if (identidade.bordaBase64 && identidade.bordaMime) {
-    const rId = identidade.logoBase64 ? "rId2" : "rId1";
+    const rId = proximoRId;
     const roxa = xmlImagemAncorada({
       relationId: rId,
       nome: "Borda (canto superior direito)",
@@ -171,11 +261,16 @@ function xmlBordaRodape(identidade: IdentidadeVisualConfig): string {
   return xmlFormaDecorativa(BORDA_VERDE, "rodape") + xmlFormaDecorativa(BORDA_ROXA, "rodape");
 }
 
-function montarHeaderXml(conteudo: ConteudoRelatorioFinal, identidade: IdentidadeVisualConfig): string {
+function montarHeaderXml(
+  conteudo: ConteudoRelatorioFinal,
+  identidade: IdentidadeVisualConfig,
+  imagensLogo: ImagemLogoHeader[],
+): string {
+  const rIdBorda = `rId${imagensLogo.length + 1}`;
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:hdr ${NAMESPACES_WORDML} xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
-${xmlBordaCabecalho(identidade)}
-${xmlLogoCentralizado(identidade)}
+${xmlLogosCabecalho(imagensLogo)}
+${xmlBordaCabecalho(identidade, rIdBorda)}
 <w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">${escaparXml(
     conteudo.tituloProfissional.toUpperCase(),
   )}</w:t></w:r></w:p>
@@ -255,39 +350,42 @@ export async function gerarDocxRelatorioFinal(
   identidade: IdentidadeVisualConfig,
 ): Promise<Uint8Array> {
   const zip = new JSZip();
+  const imagensLogo = resolverImagensLogo(identidade);
 
-  zip.file("[Content_Types].xml", montarContentTypesXml());
-  zip.folder("_rels")?.file(".rels", montarRelsRaiz());
+  zip.file("[Content_Types].xml", utf8Bytes(montarContentTypesXml()));
+  zip.folder("_rels")?.file(".rels", utf8Bytes(montarRelsRaiz()));
 
   const pastaWord = zip.folder("word");
-  pastaWord?.file("document.xml", montarDocumentXml(conteudo));
-  pastaWord?.file("styles.xml", montarStylesXml());
-  pastaWord?.file("header1.xml", montarHeaderXml(conteudo, identidade));
-  pastaWord?.file("footer1.xml", montarFooterXml(identidade));
-  pastaWord?.folder("_rels")?.file("document.xml.rels", montarDocumentRels());
+  pastaWord?.file("document.xml", utf8Bytes(montarDocumentXml(conteudo)));
+  pastaWord?.file("styles.xml", utf8Bytes(montarStylesXml()));
+  pastaWord?.file("header1.xml", utf8Bytes(montarHeaderXml(conteudo, identidade, imagensLogo)));
+  pastaWord?.file("footer1.xml", utf8Bytes(montarFooterXml(identidade)));
+  pastaWord?.folder("_rels")?.file("document.xml.rels", utf8Bytes(montarDocumentRels()));
 
   const pastaMedia = pastaWord?.folder("media");
   const relacionamentosHeader: string[] = [];
 
-  if (identidade.logoBase64 && identidade.logoMime) {
-    const arquivo = `logo.${extensaoPorMime(identidade.logoMime)}`;
-    pastaMedia?.file(arquivo, identidade.logoBase64, { base64: true });
-    relacionamentosHeader.push(relacionamento("rId1", arquivo));
+  for (const imagem of imagensLogo) {
+    pastaMedia?.file(imagem.arquivo, base64Bytes(imagem.base64));
+    relacionamentosHeader.push(relacionamento(imagem.relationId, imagem.arquivo));
   }
 
   if (identidade.bordaBase64 && identidade.bordaMime) {
     const arquivo = `borda.${extensaoPorMime(identidade.bordaMime)}`;
-    pastaMedia?.file(arquivo, identidade.bordaBase64, { base64: true });
-    relacionamentosHeader.push(relacionamento(identidade.logoBase64 ? "rId2" : "rId1", arquivo));
+    const rIdBorda = `rId${imagensLogo.length + 1}`;
+    pastaMedia?.file(arquivo, base64Bytes(identidade.bordaBase64));
+    relacionamentosHeader.push(relacionamento(rIdBorda, arquivo));
 
     pastaWord
       ?.folder("_rels")
       ?.file(
         "footer1.xml.rels",
-        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relacionamento(
-          "rId1",
-          arquivo,
-        )}</Relationships>`,
+        utf8Bytes(
+          `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relacionamento(
+            "rId1",
+            arquivo,
+          )}</Relationships>`,
+        ),
       );
   }
 
@@ -296,7 +394,9 @@ export async function gerarDocxRelatorioFinal(
       ?.folder("_rels")
       ?.file(
         "header1.xml.rels",
-        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relacionamentosHeader.join("")}</Relationships>`,
+        utf8Bytes(
+          `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relacionamentosHeader.join("")}</Relationships>`,
+        ),
       );
   }
 

@@ -2,7 +2,7 @@ import { ANAMNESE_SCHEMA, type TipoCampo } from "@core/data/anamneseSchema";
 import type { Familiar, Ficha, Perfil, RespostaFicha } from "@core/db/types";
 import { idsDeCamposDetalhe, valorAtingeGatilho } from "@core/services/progressoFicha";
 
-const SEPARADOR_MULTIPLA_ESCOLHA = ";";
+export const SEPARADOR_MULTIPLA_ESCOLHA = ";";
 const VAZIO = "—";
 
 export interface ItemConteudo {
